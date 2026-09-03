@@ -2,6 +2,13 @@
   "name": "@remy-ai/webmcp",
   "version": "0.1.0-alpha",
   "description": "Expose Remy actions through the browser WebMCP API.",
+  "keywords": [
+    "webmcp",
+    "ai",
+    "agents",
+    "browser",
+    "typescript"
+  ],
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -38,6 +45,7 @@
     "node": ">=18.18"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "alpha"
   }
 }

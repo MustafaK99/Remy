@@ -2,6 +2,15 @@
   "name": "@remy-ai/core",
   "version": "0.1.0-alpha",
   "description": "Typed policy, approval, receipt, and recovery primitives for AI agent actions.",
+  "keywords": [
+    "ai",
+    "agents",
+    "approvals",
+    "receipts",
+    "recovery",
+    "typescript",
+    "webmcp"
+  ],
   "type": "module",
   "sideEffects": false,
   "files": [
@@ -35,6 +44,7 @@
     "node": ">=18.18"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "tag": "alpha"
   }
 }
