@@ -419,7 +419,7 @@ export default function DocsPage() {
             </p>
             <CodeBlock value={reactCode} filename="Client component" />
             <p className="mt-5">
-              The return drawer is demo UI, not a required Remy design. Agent
+              The Morrow Action Center is demo UI, not a required Remy design. Agent
               activity excludes ordinary user clicks; developer run summaries
               belong in developer tooling, not the end-user action panel.
             </p>
@@ -432,7 +432,7 @@ export default function DocsPage() {
             <p>
               The application and Remy have separate persistence boundaries.
               Remy stores schema-versioned semantic receipts and journal events;
-              the return demo stores its fictional order state separately.
+              the Morrow demo stores its fictional shop state separately.
             </p>
             <div className="mt-6 border-t border-[#17241f]/12">
               <DocRow name="Stored" detail="Action/version, IDs, bounded actor, decision, summary, allowlisted changes, resource versions, status, time, duration, error code, and recovery links." />
@@ -525,7 +525,7 @@ npm run verify:packages`} filename="Terminal" />
           <div className="mt-16 flex flex-col justify-between gap-6 border-t border-[#17241f]/12 pt-8 sm:flex-row sm:items-center">
             <div>
               <p className="font-medium">Ship agents users aren&apos;t afraid to trust.</p>
-              <p className="mt-1 text-sm text-[#747c76]">Try policy, approval, receipts, and recovery in the return demo.</p>
+              <p className="mt-1 text-sm text-[#747c76]">Try policy, approval, receipts, and recovery in the Morrow demo.</p>
             </div>
             <Link href="/demo" className="group inline-flex h-11 w-fit items-center gap-2 bg-[#17241f] px-4 text-sm font-medium text-white hover:bg-[#294238]">
               Open the live demo

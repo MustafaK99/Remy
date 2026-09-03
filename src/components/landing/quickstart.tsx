@@ -1,71 +1,60 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
 
-const sourceCommand = "npm ci && npm run dev";
+const sourceCommand = "git clone https://github.com/MustafaK99/Remy.git && cd Remy && npm ci";
 
-const actionCode = `import { createRemy, succeed } from "@remy-ai/core"
-import { registerWebMCP } from "@remy-ai/webmcp"
-import { z } from "zod"
-
-const remy = createRemy({ context: () => documents })
-const rename = remy.defineAction({
-  name: "rename_document",
-  title: "Rename document",
-  description: "Rename the current document.",
+const actionCode = `const chooseDelivery = remy.defineAction({
+  name: "choose_delivery",
+  title: "Choose delivery",
   kind: "write",
   risk: "low",
-  input: z.strictObject({ title: z.string() }),
-  preview: ({ input, context }) => ({
-    summary: \`Rename document to \${input.title}.\`,
-    changes: [{ label: "Title", before: context.title, after: input.title }],
-    recovery: { title: context.title },
+  input: z.strictObject({
+    method: z.enum(["standard", "express"]),
   }),
-  execute: ({ input, context }) => {
-    context.rename(input.title)
-    return succeed({ title: input.title })
-  },
+  preview: ({ input, context }) => ({
+    summary: \`Choose \${input.method} delivery\`,
+    changes: [{
+      label: "Delivery",
+      before: context.cart.delivery,
+      after: input.method,
+    }],
+    recovery: { method: context.cart.delivery },
+  }),
+  execute: ({ input, context }) =>
+    context.cart.setDelivery(input.method),
   recovery: {
     kind: "exact",
-    execute: ({ receipt, context }) => {
-      context.rename(receipt.recovery.title)
-      return succeed({ title: receipt.recovery.title })
-    },
+    execute: ({ receipt, context }) =>
+      context.cart.setDelivery(receipt.recovery.method),
   },
 })
 
-remy.register(rename)
-const registration = await registerWebMCP(remy)`;
+remy.register(chooseDelivery)
+await registerWebMCP(remy)`;
 
 export function Quickstart() {
   return (
-    <div className="mt-10 overflow-hidden rounded-[2px] border border-[var(--line-strong)] bg-white">
-      <div className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-        <div>
-          <p className="text-sm font-semibold">Run the public repository</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">Node 20+ · npm 10+ · no environment variables required.</p>
-        </div>
-        <div className="flex min-w-0 items-center gap-3">
-          <code className="min-w-0 overflow-x-auto whitespace-nowrap font-mono text-xs text-[var(--ink-soft)]">{sourceCommand}</code>
-          <CopyButton value={sourceCommand} />
+    <div className="min-w-0 bg-[var(--surface-1)]">
+      <div className="border-b border-[var(--border-subtle)] px-5 py-5 sm:px-8">
+        <p className="font-mono text-[10px] text-[var(--text-quiet)]">RUN FROM SOURCE</p>
+        <div className="mt-3 flex min-w-0 items-center gap-3 border border-[var(--border-strong)] bg-[var(--background)] p-2 pl-4">
+          <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap font-mono text-xs text-[var(--text-primary)]">{sourceCommand}</code>
+          <CopyButton value={sourceCommand} tone="dark" />
         </div>
       </div>
-
-      <div className="min-w-0 bg-[var(--code)] text-white">
-        <div className="flex min-h-12 items-center justify-between border-b border-white/10 px-5 sm:px-7">
-          <span className="font-mono text-xs text-white/55">rename-document.ts</span>
+      <div className="border-b border-[var(--border-subtle)]">
+        <div className="flex h-11 items-center justify-between border-b border-[var(--border-subtle)] px-5 sm:px-8">
+          <span className="font-mono text-[10px] text-[var(--text-quiet)]">choose-delivery.ts</span>
           <CopyButton value={actionCode} tone="dark" />
         </div>
-        <pre className="max-h-[30rem] overflow-auto p-5 font-mono text-[13px] leading-6 text-white/75 sm:p-7">
+        <pre className="max-h-[380px] overflow-auto px-5 py-5 font-mono text-[12px] leading-5 text-[var(--text-secondary)] sm:px-8">
           <code>{actionCode}</code>
         </pre>
       </div>
-
-      <div className="flex flex-col gap-2 border-t border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
-        <p className="text-xs text-[var(--muted)]">This is the real workspace API. npm publication is still pending.</p>
-        <Link href="/docs#quickstart" className="group inline-flex min-h-11 items-center gap-2 text-sm font-semibold hover:text-[var(--accent-hover)]">
-          Complete quickstart
-          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+      <div className="flex min-h-14 items-center justify-between gap-4 px-5 sm:px-8">
+        <span className="font-mono text-[10px] text-[var(--text-quiet)]">Node 20+ · npm 10+ · no environment variables</span>
+        <Link href="/docs#quickstart" className="shrink-0 font-mono text-xs text-[var(--text-primary)] underline decoration-[var(--border-strong)] underline-offset-4 hover:decoration-[var(--text-primary)]">
+          Full quickstart
         </Link>
       </div>
     </div>

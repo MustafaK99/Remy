@@ -9,7 +9,7 @@ This alpha lets developers wrap existing application functions as typed actions.
 - `@remy-ai/core`: action definitions, policy, approvals, receipts, journal stores, version checks, idempotency, and recovery.
 - `@remy-ai/webmcp`: generic one-call WebMCP registration with runtime validation and cleanup.
 - `@remy-ai/react`: optional `useRemySnapshot()` external-store hook.
-- No-login WebMCP return demo with four recoverable actions, an explicit £84 refund approval, exact address undo, and compensating collection cancellation.
+- No-login Morrow WebMCP demo with three automatic shopping changes, an explicit purchase approval, exact delivery undo, and trusted execution.
 - Interactive document-action homepage proof with exact undo and irreversible publish approval.
 
 ## Alpha boundaries

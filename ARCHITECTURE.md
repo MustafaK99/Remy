@@ -26,7 +26,7 @@ The repository enforces these boundaries:
 - `packages/core/src` imports no React, Next.js, WebMCP, or demo modules.
 - `packages/webmcp/src` imports only the curated core package entry point.
 - `packages/react/src` imports only React and public core contracts.
-- `src/demo` may compose the core, adapter, React hook, and fictional return services.
+- `src/demo` may compose the core, adapter, React hook, and fictional shop services.
 - Package-oriented code has no Tailwind or Next.js dependency.
 
 `src/remy/architecture.test.ts` fails when one of these boundaries is crossed.
@@ -76,7 +76,7 @@ services or state adapters without Remy retaining a stale copy. The host owns:
 - native undo/editor history;
 - UI and accessibility choices.
 
-The return demo follows this rule with a separate `DemoStore` and separate,
+The Morrow demo follows this rule with a separate `DemoStore` and separate,
 versioned demo-state persistence.
 
 ## Journal and private execution data

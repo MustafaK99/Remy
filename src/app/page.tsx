@@ -1,243 +1,156 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { HeroActionDemo } from "@/components/landing/hero-action-demo";
+import { RemyMark } from "@/components/brand";
+import { MorrowHeroPreview } from "@/components/landing/morrow-hero-preview";
+import {
+  ApprovalFeature,
+  AutonomyFeature,
+  ReceiptFeature,
+} from "@/components/landing/product-features";
 import { Quickstart } from "@/components/landing/quickstart";
-import { SiteHeader } from "@/components/site-header";
 
-const benefits = [
-  [
-    "Less interruption",
-    "Recoverable work can run without stopping the user each time.",
-  ],
-  [
-    "Explicit control",
-    "Consequential actions wait for the exact approval they need.",
-  ],
-  [
-    "A durable record",
-    "Every change leaves a readable receipt and the right way back.",
-  ],
-];
-
-const workflow = [
-  ["Wrap", "Describe the change around a function your application already uses."],
-  ["Decide", "Apply your policy, the action risk, and the access the user chose."],
-  ["Recover", "Keep the receipt and run exact undo or a corrective action when needed."],
-];
-
-const recovery = [
-  ["Exact undo", "Restore the previous value.", "Rename a document"],
-  ["Compensation", "Run a new corrective action.", "Cancel a booking"],
-  ["Irreversible", "Require the right approval.", "Issue a refund"],
-];
+const proof = [
+  ["SAFE CHANGES", "Run automatically"],
+  ["CONSEQUENTIAL ACTIONS", "Wait for approval"],
+  ["EVERY CHANGE", "Leaves a receipt"],
+] as const;
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
-      <SiteHeader tone="paper" />
+    <main className="remy-landing min-h-screen bg-[var(--background)] text-[var(--text-primary)]">
+      <div className="remy-landing-frame">
+        <header className="grid h-[64px] grid-cols-[1fr_auto] border-b border-[var(--border-subtle)] md:h-[82px]">
+          <div className="flex min-w-0 items-center gap-8 px-5 md:px-8">
+            <RemyMark tone="light" />
+            <nav className="hidden items-center gap-6 font-mono text-sm text-[var(--text-quiet)] md:flex" aria-label="Primary navigation">
+              <Link href="#product" className="transition-colors hover:text-[var(--text-primary)]">Product</Link>
+              <Link href="/docs" className="transition-colors hover:text-[var(--text-primary)]">Docs</Link>
+              <a href="https://github.com/MustafaK99/Remy" target="_blank" rel="noreferrer" className="transition-colors hover:text-[var(--text-primary)]">GitHub</a>
+            </nav>
+          </div>
+          <div className="flex items-center gap-2 border-l border-[var(--border-subtle)] px-3 md:px-8">
+            <Link href="/demo" className="hidden h-10 items-center border border-[var(--border-strong)] px-4 font-mono text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--text-secondary)] hover:text-[var(--text-primary)] sm:inline-flex">
+              Live demo
+            </Link>
+            <Link href="#quickstart" className="inline-flex h-10 items-center bg-[var(--text-primary)] px-4 font-mono text-sm text-[var(--background)] transition-colors hover:bg-white">
+              Get started
+            </Link>
+          </div>
+        </header>
 
-      <section className="border-b border-[var(--line)]">
-        <div className="site-container pb-16 pt-14 sm:pb-20 sm:pt-20">
-          <div className="hero-enter grid gap-9 border-b border-[var(--line-strong)] pb-12 lg:grid-cols-[minmax(0,1.5fr)_minmax(19rem,.62fr)] lg:items-end lg:gap-16">
-            <div>
-              <p className="home-eyebrow">OPEN SOURCE <span aria-hidden="true">·</span> WEBMCP</p>
-              <h1 className="mt-5 max-w-[54rem] text-[clamp(3.2rem,5.7vw,5.15rem)] font-semibold leading-[0.94] tracking-[-0.062em]">
-                Let agents act. Keep every change under control.
-              </h1>
+        <section className="landing-hero grid border-b border-[var(--border-subtle)] lg:grid-cols-2">
+          <div className="landing-enter flex min-h-[590px] flex-col justify-center border-b border-[var(--border-subtle)] px-5 py-16 sm:px-8 lg:min-h-[700px] lg:border-b-0 lg:border-r lg:px-8 lg:py-20">
+            <div className="inline-flex w-fit items-center gap-2 border border-[var(--border-strong)] px-2.5 py-1.5 font-mono text-[11px] text-[var(--text-secondary)]">
+              <span className="size-2 bg-[var(--accent)]" aria-hidden="true" />
+              OPEN SOURCE · WEBMCP FIRST
             </div>
-
-            <div className="pb-1">
-              <p className="text-lg leading-8 text-[var(--ink-soft)]">
-                Remy adds approvals, human-readable receipts and rollback to the
-                actions AI agents take in your app.
-              </p>
-              <p className="mt-4 text-sm font-semibold leading-6 text-[var(--ink)]">
-                Reversible work runs automatically. Consequential actions wait for you.
-              </p>
-
-              <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                href="/demo"
-                  className="group inline-flex min-h-12 items-center gap-2 bg-[var(--ink)] px-5 text-sm font-semibold text-white transition-colors hover:bg-[var(--accent)]"
-              >
+            <h1 className="mt-8 max-w-[510px] text-[44px] font-normal leading-[1] tracking-[-0.05em] sm:text-[56px] lg:text-[64px] lg:leading-[64px]">
+              <span className="block">Let AI agents act</span>
+              <span className="block">without giving up</span>
+              <span className="block">control</span>
+            </h1>
+            <p className="mt-7 max-w-[450px] text-base leading-7 text-[var(--text-secondary)] sm:text-lg sm:leading-8">
+              Remy adds permissions, approvals, receipts and undo to the actions agents take inside your app.
+            </p>
+            <div className="mt-8 flex flex-wrap gap-2">
+              <Link href="/demo" className="inline-flex h-11 items-center bg-[var(--text-primary)] px-5 font-mono text-sm text-[var(--background)] transition-colors hover:bg-white">
                 Try the live demo
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
-              <a
-                href="https://github.com/MustafaK99/Remy"
-                target="_blank"
-                rel="noreferrer"
-                  className="group inline-flex min-h-12 items-center gap-2 border border-[var(--line-strong)] bg-transparent px-5 text-sm font-semibold transition-colors hover:border-[var(--ink)]"
-              >
+              <a href="https://github.com/MustafaK99/Remy" target="_blank" rel="noreferrer" className="inline-flex h-11 items-center border border-[var(--border-strong)] px-5 font-mono text-sm text-[var(--text-secondary)] transition-colors hover:border-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                 View on GitHub
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </a>
-              </div>
             </div>
           </div>
+          <div className="landing-enter-delay min-h-[620px] bg-[var(--surface-1)] lg:min-h-[700px]">
+            <MorrowHeroPreview />
+          </div>
+        </section>
 
-          <div className="hero-enter-delay grid gap-3 border-b border-[var(--line)] py-5 text-sm leading-6 sm:grid-cols-[10rem_1fr] sm:items-baseline">
-            <strong className="font-semibold text-[var(--accent)]">WebMCP + Remy</strong>
-            <p className="max-w-3xl text-[var(--ink-soft)]">
-              WebMCP lets the agent act. Remy decides when it may, records what
-              changed and gives the user a way back.
+        <section className="grid border-b border-[var(--border-subtle)] sm:grid-cols-3" aria-label="Remy outcomes">
+          {proof.map(([label, value], index) => (
+            <div key={label} className={`min-h-[112px] border-b border-[var(--border-subtle)] px-5 py-6 last:border-b-0 sm:border-b-0 sm:px-8 ${index > 0 ? "sm:border-l" : ""}`}>
+              <p className="font-mono text-[11px] text-[var(--text-quiet)]">{label}</p>
+              <p className="mt-3 text-base text-[var(--text-primary)]">{value}</p>
+            </div>
+          ))}
+        </section>
+
+        <section id="product" className="grid border-b border-[var(--border-subtle)] lg:grid-cols-2">
+          <div className="min-h-[480px] border-b border-[var(--border-subtle)] bg-[var(--surface-1)] lg:border-b-0 lg:border-r">
+            <AutonomyFeature />
+          </div>
+          <FeatureCopy title="Let reversible work run">
+            Low-risk changes execute automatically according to the user’s selected access.
+          </FeatureCopy>
+        </section>
+
+        <section className="grid border-b border-[var(--border-subtle)] lg:grid-cols-2">
+          <div className="order-1 min-h-[480px] border-b border-[var(--border-subtle)] bg-[var(--surface-1)] lg:order-2 lg:border-b-0 lg:border-l">
+            <ApprovalFeature />
+          </div>
+          <div className="order-2 lg:order-1">
+            <FeatureCopy title="Pause what matters">
+              Purchases and irreversible actions wait for explicit, specific approval.
+            </FeatureCopy>
+          </div>
+        </section>
+
+        <section className="grid border-b border-[var(--border-subtle)] lg:grid-cols-2">
+          <div className="min-h-[480px] border-b border-[var(--border-subtle)] bg-[var(--surface-1)] lg:border-b-0 lg:border-r">
+            <ReceiptFeature />
+          </div>
+          <FeatureCopy title="Show what happened">
+            Every agent action leaves a readable receipt and the correct recovery option.
+          </FeatureCopy>
+        </section>
+
+        <section id="quickstart" className="grid scroll-mt-4 border-b border-[var(--border-subtle)] lg:grid-cols-[.78fr_1.22fr]">
+          <div className="flex min-h-[390px] flex-col justify-center border-b border-[var(--border-subtle)] px-5 py-14 sm:px-8 lg:border-b-0 lg:border-r">
+            <p className="font-mono text-xs text-[var(--text-quiet)]">DEVELOPER QUICKSTART</p>
+            <h2 className="mt-5 max-w-[390px] text-[40px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[48px]">
+              Add control to one real action
+            </h2>
+            <p className="mt-5 max-w-[390px] text-base leading-7 text-[var(--text-secondary)]">
+              Wrap the function your app already trusts, then expose it through WebMCP.
             </p>
           </div>
-
-          <div id="product" className="hero-enter-delay scroll-mt-6 pt-12 sm:pt-14">
-            <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <h2 className="max-w-xl text-3xl font-semibold tracking-[-0.045em] sm:text-[2.35rem]">
-                Three actions. One approval. Nothing hidden.
-              </h2>
-              <p className="text-sm font-semibold text-[var(--ink-soft)]">
-                3 actions <span aria-hidden="true">·</span> 2 automatic <span aria-hidden="true">·</span> 1 approval
-              </p>
-            </div>
-            <HeroActionDemo />
-          </div>
-        </div>
-      </section>
-
-      <section className="border-b border-[var(--line)]">
-        <div className="site-container grid divide-y divide-[var(--line)] md:grid-cols-3 md:divide-x md:divide-y-0">
-          {benefits.map(([title, text], index) => (
-            <article
-              key={title}
-              className={`grid grid-cols-[2rem_1fr] gap-3 py-9 md:block md:px-8 md:py-11 ${index === 0 ? "md:pl-0" : ""}`}
-            >
-              <span className="text-xs font-semibold text-[var(--accent)]">0{index + 1}</span>
-              <div>
-                <h2 className="text-base font-semibold tracking-[-0.02em] md:mt-5">{title}</h2>
-                <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--muted)]">{text}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section id="how-it-works" className="home-section border-b border-[var(--line)]">
-        <div className="site-container">
-          <SectionHeading
-            eyebrow="How it works"
-            title="Wrap → Decide → Recover"
-            text="Remy controls application actions, not model responses."
-          />
-          <ol className="mt-10 border-t border-[var(--line-strong)]">
-            {workflow.map(([title, text], index) => (
-              <li
-                key={title}
-                className="grid gap-3 border-b border-[var(--line)] py-7 sm:grid-cols-[3rem_9rem_1fr] sm:items-baseline"
-              >
-                <span className="text-sm font-semibold text-[var(--accent)]">
-                  0{index + 1}
-                </span>
-                <h3 className="text-lg font-semibold tracking-[-0.025em]">{title}</h3>
-                <p className="max-w-2xl text-base leading-7 text-[var(--muted)]">{text}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section className="home-section border-b border-[var(--line)]">
-        <div className="site-container grid gap-12 lg:grid-cols-[.72fr_1.28fr] lg:gap-20">
-          <SectionHeading
-            eyebrow="Recovery"
-            title="A precise way back."
-            text="Remy distinguishes an undo from a corrective action—and never promises either when none exists."
-          />
-          <div className="border-t border-[var(--line-strong)]">
-            {recovery.map(([title, text, example]) => (
-              <div
-                key={title}
-                className="grid gap-2 border-b border-[var(--line)] py-6 sm:grid-cols-[9rem_1fr_10rem] sm:items-baseline"
-              >
-                <h3 className="text-sm font-semibold">{title}</h3>
-                <p className="text-sm leading-6 text-[var(--muted)]">{text}</p>
-                <p className="text-xs text-[var(--ink-soft)]">{example}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="quickstart" className="home-section border-b border-[var(--line)]">
-        <div className="site-container">
-          <SectionHeading
-            eyebrow="Developer quickstart"
-            title="Wrap one real function."
-            text="The public alpha runs from this repository today. The packages are prepared but not yet published to npm."
-          />
           <Quickstart />
-        </div>
-      </section>
+        </section>
 
-      <section className="home-section border-b border-[var(--line)] bg-[var(--paper-muted)]">
-        <div className="site-container grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-end lg:gap-20">
-          <SectionHeading
-            eyebrow="Open source"
-            title="WebMCP works now."
-            text="Remy is MIT licensed. The core stays protocol-neutral; future adapters remain on the roadmap until they are implemented."
-          />
-          <nav
-            className="flex flex-wrap gap-x-7 gap-y-3 text-sm font-semibold lg:justify-end"
-            aria-label="Project links"
-          >
-            <a href="https://github.com/MustafaK99/Remy" target="_blank" rel="noreferrer" className="hover:text-[var(--accent-hover)]">Source</a>
-            <a href="https://github.com/MustafaK99/Remy/blob/master/LICENSE" target="_blank" rel="noreferrer" className="hover:text-[var(--accent-hover)]">MIT licence</a>
-            <a href="https://github.com/MustafaK99/Remy/blob/master/ROADMAP.md" target="_blank" rel="noreferrer" className="hover:text-[var(--accent-hover)]">Roadmap</a>
-          </nav>
-        </div>
-      </section>
-
-      <section className="home-section bg-[var(--ink)] text-white">
-        <div className="site-container flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+        <section className="flex min-h-[330px] flex-col justify-center px-5 py-16 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:gap-16">
           <div>
-            <p className="section-kicker text-[var(--accent)]">Remy alpha</p>
-            <h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1] tracking-[-0.05em] sm:text-6xl">
+            <p className="font-mono text-xs text-[var(--text-quiet)]">MIT LICENSED · TYPESCRIPT</p>
+            <h2 className="mt-5 max-w-[700px] text-[40px] font-normal leading-[1.04] tracking-[-0.045em] sm:text-[56px]">
               Ship agents users aren’t afraid to trust.
             </h2>
           </div>
-          <Link
-            href="/demo"
-            className="group inline-flex min-h-12 shrink-0 items-center gap-2 bg-white px-5 text-sm font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--paper-muted)]"
-          >
+          <Link href="/demo" className="mt-8 inline-flex h-11 w-fit shrink-0 items-center bg-[var(--text-primary)] px-5 font-mono text-sm text-[var(--background)] transition-colors hover:bg-white lg:mt-0">
             Try the live demo
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
           </Link>
-        </div>
-      </section>
+        </section>
 
-      <footer className="border-t border-white/10 bg-[var(--ink)] text-white">
-        <div className="site-container flex flex-col gap-5 py-8 text-sm text-white/60 sm:flex-row sm:items-center sm:justify-between">
+        <footer className="flex min-h-[72px] flex-col gap-4 border-t border-[var(--border-subtle)] px-5 py-5 font-mono text-xs text-[var(--text-quiet)] sm:flex-row sm:items-center sm:justify-between sm:px-8">
           <p>Remy · control, receipts and recovery for agent actions.</p>
-          <nav className="flex gap-6 font-medium text-white/80" aria-label="Footer">
-            <Link href="/docs" className="hover:text-white">Docs</Link>
-            <Link href="/demo" className="hover:text-white">Demo</Link>
-            <a href="https://github.com/MustafaK99/Remy" target="_blank" rel="noreferrer" className="hover:text-white">GitHub</a>
+          <nav className="flex gap-6" aria-label="Footer">
+            <Link href="/docs" className="hover:text-[var(--text-primary)]">Docs</Link>
+            <Link href="/demo" className="hover:text-[var(--text-primary)]">Demo</Link>
+            <a href="https://github.com/MustafaK99/Remy" target="_blank" rel="noreferrer" className="hover:text-[var(--text-primary)]">GitHub</a>
           </nav>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </main>
   );
 }
 
-function SectionHeading({
-  eyebrow,
-  title,
-  text,
-}: {
-  readonly eyebrow: string;
-  readonly title: string;
-  readonly text: string;
-}) {
+function FeatureCopy({ title, children }: { readonly title: string; readonly children: ReactNode }) {
   return (
-    <div>
-      <p className="section-kicker text-[var(--accent)]">{eyebrow}</p>
-      <h2 className="mt-4 max-w-3xl text-4xl font-semibold leading-[1.03] tracking-[-0.05em] sm:text-5xl">
+    <div className="flex min-h-[360px] flex-col justify-center px-5 py-14 sm:px-8 lg:min-h-[480px] lg:px-12">
+      <h2 className="max-w-[430px] text-[40px] font-normal leading-[1.05] tracking-[-0.045em] sm:text-[48px]">
         {title}
       </h2>
-      <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--muted)]">{text}</p>
+      <p className="mt-5 max-w-[420px] text-base leading-7 text-[var(--text-secondary)]">
+        {children}
+      </p>
     </div>
   );
 }

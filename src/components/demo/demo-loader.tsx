@@ -7,7 +7,7 @@ const DemoApp = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="min-h-screen bg-[#f3f1ea]" aria-label="Loading Remy demo" />
+      <div className="min-h-screen bg-[#eeece6]" aria-label="Loading Remy demo" />
     ),
   },
 );

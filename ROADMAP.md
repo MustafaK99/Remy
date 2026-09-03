@@ -7,7 +7,7 @@ will follow the evidence from real integrations.
 
 ## Now
 
-- Working WebMCP return demonstration for fictional order #1842.
+- Working WebMCP Morrow shopping demonstration.
 - Application-neutral, protocol-neutral semantic action engine.
 - Inferred `defineAction()` API over Standard Schema V1.
 - Policies and user-selectable autonomy modes.

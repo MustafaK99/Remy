@@ -32,7 +32,7 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the product site, [http://localhost:3000/demo](http://localhost:3000/demo) for the return demo, or [http://localhost:3000/demo?judge=1](http://localhost:3000/demo?judge=1) for concise evaluator instructions.
+Open [http://localhost:3000](http://localhost:3000) for the product site or [http://localhost:3000/demo](http://localhost:3000/demo) for the Morrow shopping demo.
 
 Cloning is the judge and contributor path today. Library users will install the scoped packages after they are published; the README does not advertise an npm command that currently returns 404.
 
@@ -86,27 +86,20 @@ registration.unregister();
 
 ## Running the demo
 
-The no-login demo uses fictional order #1842:
+The no-login Morrow demo uses a fictional £128 pair of headphones. In **Reversible actions** mode, Remy adds Morrow One in Charcoal, chooses £8 express delivery, and applies `HELLO10` automatically. The purchase waits for an explicit approval at the authoritative £123 total.
 
-- Morrow One headphones: £64
-- Canvas travel case: £20
-- Refund total: £84
-- Collection address: 14 High Street, changed to 22 New Road
-
-In **Reversible actions** mode, Remy creates the return, records the reason, changes the address, and books the collection automatically. The irreversible £84 refund waits for explicit approval. Reversing the address restores 14 High Street and appends a linked recovery receipt without deleting the original.
-
-**Trusted run** is deliberately different: when the user selects that mode, the registered refund action may run without a second approval. An agent that requests broader controls through `request_remy_controls` cannot grant that authority to itself; the request remains pending until the person accepts it.
+Undoing express delivery restores standard delivery, updates the total to £115, and appends a linked recovery receipt without deleting the original action. **Trusted run** is deliberately different: an agent can request the mode and the `commerce.purchase` grant, but that authority remains pending until the person accepts it. Once granted, the registered purchase can complete without a second approval.
 
 Reset demo clears application state, receipts, pending approvals, controls, and self-reported agent identity.
 
 ## Testing with WebMCP
 
-1. Run `npm run dev` and open `http://localhost:3000/demo?judge=1` in a browser that implements `document.modelContext`.
+1. Run `npm run dev` and open `http://localhost:3000/demo` in a browser that implements `document.modelContext`.
 2. Confirm the page says **WebMCP ready**.
-3. Ask the browser agent to return both items from order #1842 because they are incompatible with a laptop, collect them next Friday from 22 New Road, and refund the original payment method.
-4. Open Remy. Check the four completed recoverable actions and the pending £84 refund.
-5. Open the collection-address receipt and restore 14 High Street. Both the original and recovery receipt remain.
-6. Approve or reject the refund and confirm the order page updates accordingly.
+3. Ask the browser agent: **“Add Morrow One in Charcoal, choose express delivery, and apply HELLO10.”**
+4. Open Remy and inspect the three automatic receipts.
+5. Undo express delivery and confirm the total becomes £115 while both the original and recovery receipt remain.
+6. Ask **“Buy it.”**, then approve or reject the explicit purchase request.
 
 The implementation calls [`document.modelContext.registerTool(...)`](./packages/webmcp/src/index.ts) imperatively. Unsupported browsers show a clear status and keep the ordinary order page usable.
 
@@ -161,7 +154,7 @@ The same non-browser checks run on pushes to `master` or `main` and on pull requ
 
 ## WebMCP challenge implementation
 
-The return demo registers application-neutral action definitions through the real WebMCP adapter. It demonstrates runtime schema validation, self-reported agent attribution, four autonomy modes, human permission escalation, approval and rejection, exact address recovery, compensating collection cancellation, append-only receipts, stale-approval checks, resource-version protection, idempotency, reset, registration cleanup, and a graceful unsupported-browser path.
+The Morrow demo registers application-neutral action definitions through the real WebMCP adapter. It demonstrates runtime schema validation, self-reported agent attribution, four autonomy modes, human permission escalation, approval and rejection, exact recovery, append-only receipts, stale-approval checks, resource-version protection, idempotency, reset, registration cleanup, and a graceful unsupported-browser path.
 
 WebMCP is the first adapter, not the entire product. Planned adapters are not represented as shipped.
 

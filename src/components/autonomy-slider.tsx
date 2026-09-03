@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentType } from "react";
 import { motion, useReducedMotion } from "motion/react";
 
 export type AutonomyOption<Value extends string> = {
@@ -7,6 +8,7 @@ export type AutonomyOption<Value extends string> = {
   readonly label: string;
   readonly shortLabel: string;
   readonly description: string;
+  readonly icon?: ComponentType<{ className?: string; strokeWidth?: number }>;
 };
 
 export function AutonomySlider<Value extends string>({
@@ -31,6 +33,7 @@ export function AutonomySlider<Value extends string>({
   const transition = reducedMotion
     ? { duration: 0 }
     : { type: "spring" as const, stiffness: 420, damping: 38, mass: 0.7 };
+  const Icon = selected.icon;
 
   return (
     <div className={`autonomy-slider ${className}`} data-autonomy-value={selected.value}>
@@ -60,7 +63,9 @@ export function AutonomySlider<Value extends string>({
             className="autonomy-slider__thumb"
             animate={{ left: positions[index] }}
             transition={transition}
-          />
+          >
+            {Icon ? <Icon className="size-3.5" strokeWidth={2.4} /> : null}
+          </motion.span>
         </div>
         <input
           aria-label={label}
@@ -89,7 +94,7 @@ export function AutonomySlider<Value extends string>({
           </button>
         ))}
       </div>
-      <p className="mt-2 min-h-5 text-xs leading-5 text-[var(--muted)]">
+      <p className="mt-3 min-h-5 text-xs leading-5 text-[var(--muted)]">
         {selected.description}
       </p>
     </div>

@@ -11,7 +11,7 @@ export function RemyMark({
     <Link
       href="/"
       className={`group inline-flex items-center gap-2.5 ${
-        tone === "light" ? "text-[#f4f1e8]" : "text-[#111510]"
+        tone === "light" ? "text-[#fafafa]" : "text-[#111510]"
       }`}
       aria-label="Remy home"
     >
@@ -27,7 +27,7 @@ export function RemyMark({
         />
         <path
           d="M10 14h20l-5.2 8H5l5-8Z"
-          fill="#ff6b43"
+          fill="#ff6200"
           className="transition-transform duration-300 group-hover:translate-y-0.5"
         />
       </svg>
