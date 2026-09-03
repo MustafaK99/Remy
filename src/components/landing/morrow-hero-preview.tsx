@@ -103,7 +103,7 @@ export function MorrowHeroPreview() {
 
       <div className="grid grid-cols-[142px_1fr] border-b border-[var(--border-subtle)] sm:grid-cols-[180px_1fr]">
         <div className="relative border-r border-[var(--border-subtle)]">
-          <Image src="/images/morrow-headphones-kit.png" alt="Morrow One headphones" fill sizes="180px" className="object-cover" priority />
+          <Image src="/images/morrow-headphones-kit.webp" alt="Morrow One headphones" fill sizes="180px" className="object-cover" priority />
         </div>
         <div className="flex flex-col justify-center px-5 sm:px-6">
           <p className="font-mono text-[10px] text-[var(--text-quiet)]">SHOPPING BAG</p>

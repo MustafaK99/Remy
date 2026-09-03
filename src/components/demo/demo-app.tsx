@@ -154,7 +154,7 @@ function DemoWorkspace() {
             <section className="relative overflow-hidden rounded-[28px] bg-[#d9dfd1] lg:sticky lg:top-6 lg:self-start">
               <div className="relative aspect-[4/3] lg:aspect-[4/4.15]">
                 <Image
-                  src="/images/morrow-headphones-kit.png"
+                  src="/images/morrow-headphones-kit.webp"
                   alt="Morrow One charcoal headphones beside their canvas travel case"
                   fill
                   loading="eager"
@@ -291,7 +291,7 @@ function DemoWorkspace() {
                     <div className="mt-6 flex gap-4 border-b border-[#19362e]/12 pb-5">
                       <div className="relative size-20 shrink-0 overflow-hidden rounded-[14px] bg-[#d9dfd1]">
                         <Image
-                          src="/images/morrow-headphones-kit.png"
+                          src="/images/morrow-headphones-kit.webp"
                           alt=""
                           fill
                           sizes="80px"
