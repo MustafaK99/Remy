@@ -17,13 +17,13 @@ will follow the evidence from real integrations.
 - Exact reversal and compensation model.
 - Versioned local action journal separated from application state.
 - Generic headless WebMCP registration and React external-store hook.
-- Publish-ready `@remy-ai/core`, `@remy-ai/webmcp`, and `@remy-ai/react` packages.
+- Published `@remy-ai/core`, `@remy-ai/webmcp`, and `@remy-ai/react` alpha packages.
 - Clean-fixture tarball verification for package declarations and runtime exports.
 - MIT-licensed public release.
 
 ## Next
 
-- Publish the verified alpha packages to npm and continuously verify the public quickstart.
+- Continuously verify the public npm quickstart.
 - Add a future initializer only after it can configure a real application end to end.
 - Add durable receipt stores with retention and redaction controls.
 - Add framework-neutral Action Center primitives.
@@ -53,5 +53,5 @@ will follow the evidence from real integrations.
 
 Future protocol and SDK adapter APIs are intentionally not documented as
 shipped until they are implemented, packaged, and exercised in CI. Today, the
-repository contains verified package artifacts for the generic core, WebMCP
-adapter, and React hook; publishing them to npm is a manual release step.
+generic core, WebMCP adapter, and React hook are published as public npm alpha
+packages through the repository's controlled release workflow.

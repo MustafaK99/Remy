@@ -1,6 +1,6 @@
 {
   "name": "@remy-ai/webmcp",
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-alpha.1",
   "description": "Expose Remy actions through the browser WebMCP API.",
   "keywords": [
     "webmcp",
@@ -29,7 +29,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@remy-ai/core": "0.1.0-alpha"
+    "@remy-ai/core": "0.1.0-alpha.1"
   },
   "license": "MIT",
   "repository": {

@@ -16,6 +16,8 @@ cd Remy
 npm ci
 npm run dev`;
 
+const installCommands = `npm install @remy-ai/core@alpha @remy-ai/webmcp@alpha zod`;
+
 const quickstartCode = `import { createRemy, succeed } from "@remy-ai/core"
 import { registerWebMCP } from "@remy-ai/webmcp"
 import { z } from "zod"
@@ -268,10 +270,10 @@ export default function DocsPage() {
 
           <DocSection id="quickstart" number="01" title="Five-minute quickstart">
             <p>
-              The packages are not on npm yet. Run the public repository with
-              Node 20+ and npm 10+; no environment variables are required.
+              Install the public alpha packages from npm. Remy accepts Standard
+              Schema validators; this example uses Zod.
             </p>
-            <CodeBlock value={localCommands} filename="Terminal" />
+            <CodeBlock value={installCommands} filename="Terminal" />
             <p className="mt-5">
               Create a client around the service your application already owns,
               wrap one function, register the action, then expose it through
@@ -290,6 +292,11 @@ export default function DocsPage() {
               Remy wraps host functions. Keep authentication, authorisation,
               state, and durable side effects authoritative in your application.
             </Callout>
+            <p className="mt-5">
+              To run the Morrow demo or contribute to Remy, clone the repository
+              and start the local Next.js application:
+            </p>
+            <CodeBlock value={localCommands} filename="Local demo" />
           </DocSection>
 
           <DocSection id="concepts" number="02" title="Core concepts">
@@ -508,7 +515,7 @@ npm run verify:packages`} filename="Terminal" />
               <DocRow name="VERSION_CONFLICT" detail="Later state makes exact recovery unsafe. Use an application-specific corrective path." />
               <DocRow name="WAIT_TIMEOUT / WAIT_ABORTED" detail="Only the caller's bounded wait ended. The pending action receipt remains available." />
               <DocRow name="RECOVERY_DATA_UNAVAILABLE" detail="Private recovery material is not persisted by default. Prepare a corrective action after reload." />
-              <DocRow name="npm returns 404" detail="The prepared alpha package has not been published to the @remy-ai scope yet. The release owner must complete the npm publish checklist." />
+              <DocRow name="npm cannot resolve an alpha" detail="Install with the explicit @alpha tag and confirm the registry is https://registry.npmjs.org. The packages require Node 18.18 or later." />
             </div>
           </DocSection>
 

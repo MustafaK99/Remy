@@ -134,8 +134,8 @@ The source now matches the intended package boundaries:
 - `packages/webmcp` → `@remy-ai/webmcp`
 
 Each package builds ESM and declarations, contains no site alias, and is tested
-from packed tarballs in a temporary project. npm publication remains a manual
-release-owner step.
+from packed tarballs in a temporary project. The alpha packages are published
+to npm through a controlled GitHub Actions release job with signed provenance.
 
 MCP and agent-SDK adapters should consume the same action descriptors and
 string-dispatch boundary. They should not require action definitions or host

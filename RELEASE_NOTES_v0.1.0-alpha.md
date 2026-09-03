@@ -1,4 +1,4 @@
-# Remy v0.1.0-alpha
+# Remy v0.1.0-alpha.1
 
 Remy is an open-source TypeScript SDK for permissions, approvals, receipts, and recovery around AI agent actions.
 

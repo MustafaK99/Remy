@@ -4,9 +4,9 @@
 
 Remy is an open-source TypeScript SDK that wraps the functions an AI agent can call in your application. Recoverable work can run automatically, consequential work can wait for approval, and every change leaves a readable receipt and recovery path.
 
-[Run the live demo locally](#five-minute-local-quick-start) · [Documentation](./src/app/docs/page.tsx) · [WebMCP adapter](./packages/webmcp/src/index.ts) · [![MIT licence](https://img.shields.io/badge/licence-MIT-171713.svg)](./LICENSE)
+[Run the live demo locally](#run-the-demo-locally) · [Documentation](./src/app/docs/page.tsx) · [WebMCP adapter](./packages/webmcp/src/index.ts) · [![MIT licence](https://img.shields.io/badge/licence-MIT-171713.svg)](./LICENSE)
 
-> **Public alpha:** WebMCP support works from this repository today. The `@remy-ai` packages are built and verified as tarballs, but are not published to npm yet.
+> **Public alpha:** `@remy-ai/core`, `@remy-ai/webmcp`, and `@remy-ai/react` are published on npm under the `alpha` tag with signed provenance.
 
 ## Why Remy exists
 
@@ -22,7 +22,17 @@ Agent-enabled applications usually force a poor choice: interrupt the user for e
 - Treats every invocation as a protocol-neutral action record, then exposes the same actions through WebMCP.
 - Leaves authentication, authorisation, state, and business logic with the host application.
 
-## Five-minute local quick start
+## Five-minute package quick start
+
+Requirements: Node.js 18.18 or later. Install the protocol-neutral core, the WebMCP adapter, and a Standard Schema validator:
+
+```bash
+npm install @remy-ai/core@alpha @remy-ai/webmcp@alpha zod
+```
+
+Add `@remy-ai/react@alpha` only when you want the optional React external-store hook.
+
+## Run the demo locally
 
 Requirements: Node.js 20 or later and npm 10 or later. No environment variables or local services are required.
 
@@ -34,8 +44,6 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) for the product site or [http://localhost:3000/demo](http://localhost:3000/demo) for the Morrow shopping demo.
-
-Cloning is the judge and contributor path today. Library users will install the scoped packages after they are published; the README does not advertise an npm command that currently returns 404.
 
 ## Minimal integration
 
@@ -132,9 +140,9 @@ Application functions and services
 
 | Workspace package | Purpose | npm status |
 | --- | --- | --- |
-| `@remy-ai/core` | Typed actions, policy, receipts, journal, approvals, and recovery. | Prepared; unpublished |
-| `@remy-ai/webmcp` | Headless WebMCP registration, validation, invocation, and cleanup. | Prepared; unpublished |
-| `@remy-ai/react` | Optional `useRemySnapshot(remy)` external-store hook. | Prepared; unpublished |
+| [`@remy-ai/core`](https://www.npmjs.com/package/@remy-ai/core) | Typed actions, policy, receipts, journal, approvals, and recovery. | `0.1.0-alpha.1` |
+| [`@remy-ai/webmcp`](https://www.npmjs.com/package/@remy-ai/webmcp) | Headless WebMCP registration, validation, invocation, and cleanup. | `0.1.0-alpha.1` |
+| [`@remy-ai/react`](https://www.npmjs.com/package/@remy-ai/react) | Optional `useRemySnapshot(remy)` external-store hook. | `0.1.0-alpha.1` |
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md), [SECURITY.md](./SECURITY.md), and the package READMEs under [`packages/`](./packages).
 
@@ -162,7 +170,7 @@ Every action is recorded and settled in `@remy-ai/core`; WebMCP only adapts that
 
 ## Roadmap
 
-Next steps are package publication, framework-neutral UI extraction, pluggable durable receipt storage, and more examples. MCP and agent-framework adapters remain later work based on developer demand. See [ROADMAP.md](./ROADMAP.md) for the maintained Now / Next / Later plan.
+Next steps are continuously verifying the public quickstart, framework-neutral UI extraction, pluggable durable receipt storage, and more examples. MCP and agent-framework adapters remain later work based on developer demand. See [ROADMAP.md](./ROADMAP.md) for the maintained Now / Next / Later plan.
 
 ## Contributing
 

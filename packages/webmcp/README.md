@@ -2,7 +2,7 @@
 
 Expose registered Remy actions through the browser WebMCP API.
 
-> Alpha workspace package. It is prepared for publication but is not on npm yet. Run it from the [public repository](https://github.com/MustafaK99/Remy) today.
+> Public alpha. Install with `npm install @remy-ai/webmcp@alpha` and review the [public repository](https://github.com/MustafaK99/Remy) before production use.
 
 ```ts
 import type { RemyClient } from "@remy-ai/core";

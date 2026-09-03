@@ -1,6 +1,6 @@
 {
   "name": "@remy-ai/react",
-  "version": "0.1.0-alpha",
+  "version": "0.1.0-alpha.1",
   "description": "Small React bindings for Remy external-store clients.",
   "keywords": [
     "react",
@@ -29,7 +29,7 @@
     "prepack": "npm run build"
   },
   "dependencies": {
-    "@remy-ai/core": "0.1.0-alpha"
+    "@remy-ai/core": "0.1.0-alpha.1"
   },
   "peerDependencies": {
     "react": ">=18.2"
