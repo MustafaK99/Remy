@@ -21,6 +21,9 @@ version or commit, reproduction steps, impact, and any suggested mitigation.
 - Keep secrets, credentials, payment details, prompts, and transcripts out of
   receipts.
 - Require explicit approval for irreversible or high-consequence actions.
+- Bound pending approval waits. A timeout or cancellation must stop only the
+  waiting transport request and preserve the action record for an authoritative
+  later decision.
 - Treat approval UI inside an agent-controllable page as interaction friction, not
   proof of human identity. The demo's press-and-hold blocks routine clicks; a
   production integration facing unrestricted UI automation should use a

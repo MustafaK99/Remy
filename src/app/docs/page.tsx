@@ -152,6 +152,7 @@ const webMcpCode = `import { registerWebMCP } from "@remy-ai/webmcp"
 const lifecycle = new AbortController()
 const registration = await registerWebMCP(remy, {
   signal: lifecycle.signal,
+  approvalTimeoutMs: 120_000,
 })
 
 if (registration.status === "partial") {
@@ -281,7 +282,7 @@ export default function DocsPage() {
               <DocRow name="Install" detail="Install core and the adapters your application uses. React stays optional." />
               <DocRow name="Define" detail="Pass one schema and wrap existing preview, execute, and recovery functions." />
               <DocRow name="Expose" detail="registerWebMCP creates imperative tools and uses the same runtime validation." />
-              <DocRow name="Approve" detail="A paused run returns awaiting_approval; render that receipt in your own UI." />
+              <DocRow name="Approve" detail="Core records awaiting_approval; adapters can await the same action so one invocation resumes after the decision." />
               <DocRow name="Recover" detail="Exact or compensating handlers receive typed recovery data and execution output." />
               <DocRow name="Enforce" detail="Keep authentication, authorisation, and side effects authoritative in the host service." />
             </div>
@@ -394,7 +395,9 @@ export default function DocsPage() {
               The headless adapter imports only public core contracts. It feature
               detects <InlineCode>document.modelContext</InlineCode>, converts the
               action schema, registers each tool once, validates input again at
-              execution, and reports partial registration failures.
+              execution, and reports partial registration failures. Approval-gated
+              tool promises remain pending by default, while the protocol-neutral
+              receipt stays authoritative in core.
             </p>
             <CodeBlock value={webMcpCode} filename="Headless registration" />
             <div className="mt-6 border-t border-[#17241f]/12">
@@ -487,6 +490,7 @@ npm run verify:packages`} filename="Terminal" />
               <DocRow name="remy.register(action)" detail="Register one definition. Duplicate action names throw an actionable error." code />
               <DocRow name="remy.run(action, input, meta?)" detail="Typed application execution. Input and success output follow the action." code />
               <DocRow name="remy.runByName(name, unknown, meta?)" detail="Runtime-validated string dispatch for protocol adapters." code />
+              <DocRow name="remy.waitForAction(id, options?)" detail="Wait for any adapter's action record to settle; timeout or cancellation preserves the receipt." code />
               <DocRow name="remy.approve(id) / reject(id)" detail="Resolve staged or waiting work after validating its current state." code />
               <DocRow name="remy.revert(id, meta?)" detail="Run exact or compensating recovery and append a linked receipt." code />
               <DocRow name="registerWebMCP(remy, options?)" detail="Register generic tools and return ready, partial, unsupported, or error status." code />
@@ -502,6 +506,7 @@ npm run verify:packages`} filename="Terminal" />
               <DocRow name="ACTION_NOT_REGISTERED" detail="Call remy.register(action), then pass that same action object to remy.run()." />
               <DocRow name="STALE_APPROVAL" detail="A referenced resource changed after preview. Prepare the action again." />
               <DocRow name="VERSION_CONFLICT" detail="Later state makes exact recovery unsafe. Use an application-specific corrective path." />
+              <DocRow name="WAIT_TIMEOUT / WAIT_ABORTED" detail="Only the caller's bounded wait ended. The pending action receipt remains available." />
               <DocRow name="RECOVERY_DATA_UNAVAILABLE" detail="Private recovery material is not persisted by default. Prepare a corrective action after reload." />
               <DocRow name="npm returns 404" detail="The prepared alpha package has not been published to the @remy-ai scope yet. The release owner must complete the npm publish checklist." />
             </div>

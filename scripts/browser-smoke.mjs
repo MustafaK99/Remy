@@ -196,7 +196,7 @@ try {
   });
   assert(recovery.ok === true, "Agent-driven delivery recovery failed.");
   await demo.getByText("Delivery restored to standard", { exact: true }).waitFor();
-  await demo.evaluate(async () => { await window.__remyTools.place_order.execute({}); });
+  const controlledPurchase = demo.evaluate(() => window.__remyTools.place_order.execute({}));
   await demo.getByTestId("approve-purchase").waitFor();
   assert((await demo.getByTestId("approve-purchase").textContent())?.includes("Hold to approve £115 purchase"), "Purchase approval is not explicit or authoritative.");
   await demo.getByTestId("approve-purchase").click();
@@ -206,6 +206,8 @@ try {
   await demo.waitForTimeout(1_350);
   await demo.keyboard.up("Space");
   await demo.getByRole("heading", { name: "Order confirmed" }).waitFor();
+  const controlledResult = await controlledPurchase;
+  assert(controlledResult.ok === true && controlledResult.status === "committed", "The pending WebMCP purchase did not resume after approval.");
   await demo.getByTestId("approve-purchase").waitFor({ state: "hidden" });
   await demo.screenshot({ path: join(output, "morrow-complete.png"), fullPage: true });
   assert(demoErrors.length === 0, `Morrow demo errors:\n${demoErrors.join("\n")}`);

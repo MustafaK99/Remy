@@ -328,6 +328,15 @@ export type RunMeta = {
   readonly signal?: AbortSignal;
 };
 
+/**
+ * Controls how long a caller waits for a recorded action to leave a pending
+ * state. Waiting never removes or rewrites the underlying receipt.
+ */
+export type WaitForActionOptions = {
+  readonly signal?: AbortSignal;
+  readonly timeoutMs?: number;
+};
+
 export type RunSuccess<Output> = {
   readonly ok: true;
   readonly actionId: string;

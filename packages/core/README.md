@@ -41,7 +41,21 @@ const renameDocument = remy.defineAction({
 });
 
 remy.register(renameDocument);
+
+const started = await remy.runByName("rename_document", {
+  title: "Launch plan",
+}, { actor: "agent", transport: "your-adapter" });
+
+if (started.ok && started.requiresApproval) {
+  // The host renders the recorded approval. Any protocol adapter can await
+  // the same action lifecycle and resume after the person decides.
+  const settled = await remy.waitForAction(started.actionId, {
+    timeoutMs: 120_000,
+  });
+}
 ```
+
+`waitForAction()` is protocol-neutral. Cancellation or timeout ends only the caller's wait; the append-only action receipt remains available for approval, rejection, recovery, and later inspection.
 
 Remy does not own your application state, authentication, or business logic. This is an alpha API; see the [documentation](https://github.com/MustafaK99/Remy/blob/master/README.md) and [security guidance](https://github.com/MustafaK99/Remy/blob/master/SECURITY.md) before production use.
 

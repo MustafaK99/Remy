@@ -22,7 +22,10 @@ export type WebMCPTool = {
     readonly readOnlyHint?: boolean;
     readonly untrustedContentHint?: boolean;
   };
-  readonly execute: (input?: unknown) => unknown | Promise<unknown>;
+  readonly execute: (
+    input?: unknown,
+    options?: { readonly signal?: AbortSignal },
+  ) => unknown | Promise<unknown>;
 };
 
 export type WebMCPModelContext = {
@@ -44,7 +47,13 @@ export type RegisterOptions = {
   readonly modelContext?: WebMCPModelContext;
   /** Extra page-specific tools that should share this registration lifecycle. */
   readonly additionalTools?: ReadonlyArray<WebMCPTool>;
+  /** Keep approval-gated action calls open until the recorded action settles. */
+  readonly awaitApproval?: boolean;
+  /** Maximum pending approval time before returning control to the agent. */
+  readonly approvalTimeoutMs?: number;
 };
+
+const DEFAULT_APPROVAL_TIMEOUT_MS = 120_000;
 
 const EMPTY_SCHEMA = {
   type: "object",
@@ -54,6 +63,29 @@ const EMPTY_SCHEMA = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function linkSignals(...signals: ReadonlyArray<AbortSignal | undefined>) {
+  const controller = new AbortController();
+  const active = signals.filter((signal): signal is AbortSignal => signal !== undefined);
+  const listeners = new Map<AbortSignal, () => void>();
+  for (const signal of active) {
+    const abort = () => controller.abort(signal.reason);
+    if (signal.aborted) {
+      abort();
+      break;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+    listeners.set(signal, abort);
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      for (const [signal, listener] of listeners) {
+        signal.removeEventListener("abort", listener);
+      }
+    },
+  };
 }
 
 function inputJsonSchema(action: ActionDescriptor) {
@@ -156,6 +188,19 @@ export async function registerWebMCP<Context>(
     };
   }
 
+  const approvalTimeoutMs = options.approvalTimeoutMs ?? DEFAULT_APPROVAL_TIMEOUT_MS;
+  if (!Number.isFinite(approvalTimeoutMs) || approvalTimeoutMs < 0) {
+    return {
+      status: "error",
+      registered: [],
+      failures: [{
+        name: "registerWebMCP",
+        error: "approvalTimeoutMs must be a finite, non-negative number.",
+      }],
+      unregister: () => undefined,
+    };
+  }
+
   const lifecycle = new AbortController();
   const externalSignal = options.signal;
   let cleanedUp = false;
@@ -214,13 +259,28 @@ export async function registerWebMCP<Context>(
           readOnlyHint: action.kind === "read",
           untrustedContentHint: false,
         },
-        execute: async (rawInput) => {
-          const result = await remy.runByName(action.name, rawInput ?? {}, {
-            actor: "agent",
-            transport: "webmcp",
-            signal: lifecycle.signal,
-          });
-          return conciseResult(remy, action.name, result);
+        execute: async (rawInput, executionOptions) => {
+          const execution = linkSignals(lifecycle.signal, executionOptions?.signal);
+          try {
+            let result = await remy.runByName(action.name, rawInput ?? {}, {
+              actor: "agent",
+              transport: "webmcp",
+              signal: execution.signal,
+            });
+            if (
+              options.awaitApproval !== false &&
+              result.ok &&
+              result.requiresApproval
+            ) {
+              result = await remy.waitForAction(result.actionId, {
+                signal: execution.signal,
+                timeoutMs: approvalTimeoutMs,
+              });
+            }
+            return conciseResult(remy, action.name, result);
+          } finally {
+            execution.cleanup();
+          }
         },
       });
     } catch (error) {

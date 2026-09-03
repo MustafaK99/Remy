@@ -6,8 +6,8 @@ This alpha lets developers wrap existing application functions as typed actions.
 
 ## Included
 
-- `@remy-ai/core`: action definitions, policy, approvals, receipts, journal stores, version checks, idempotency, and recovery.
-- `@remy-ai/webmcp`: generic one-call WebMCP registration with runtime validation and cleanup.
+- `@remy-ai/core`: action definitions, policy, approvals, protocol-neutral pending waits, receipts, journal stores, version checks, idempotency, and recovery.
+- `@remy-ai/webmcp`: generic one-call WebMCP registration with runtime validation, cancellation, and same-invocation approval resumption.
 - `@remy-ai/react`: optional `useRemySnapshot()` external-store hook.
 - No-login Morrow WebMCP demo with three automatic shopping changes, a press-and-hold user purchase approval, exact delivery undo, and trusted execution.
 - Dark product landing page with a working miniature approval and recovery flow.
@@ -19,5 +19,6 @@ This alpha lets developers wrap existing application functions as typed actions.
 - Browser journal storage is local demo persistence, not a tamper-proof audit log.
 - MCP and agent-framework adapters are planned, not shipped.
 - Package APIs may change between alpha releases.
+- Pending waits are bounded and in-process in this alpha. Durable cross-process resumption requires a durable journal and approval coordinator supplied by the host.
 
 See the [quickstart](./README.md), [architecture](./ARCHITECTURE.md), [security guidance](./SECURITY.md), and [roadmap](./ROADMAP.md).

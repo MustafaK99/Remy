@@ -65,4 +65,5 @@ export type {
   StandardSchemaIssue,
   StandardSchemaV1,
   Transport,
+  WaitForActionOptions,
 } from "./public-types";

@@ -172,6 +172,102 @@ describe("protocol-neutral Remy client", () => {
     expect(remy.getSnapshot()).toBe(changed);
   });
 
+  it("lets any adapter wait for a recorded action to settle", async () => {
+    const runtime = documentRuntime();
+    runtime.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
+    const started = await runtime.remy.run(
+      runtime.renameDocument,
+      { documentId: "doc-1", title: "Launch brief" },
+      { actor: "agent", transport: "mcp" },
+    );
+    expect(started).toMatchObject({
+      ok: true,
+      status: "awaiting_approval",
+      requiresApproval: true,
+    });
+    if (!started.ok) return;
+
+    const settled = runtime.remy.waitForAction(started.actionId, {
+      timeoutMs: 1_000,
+    });
+    expect(runtime.getTitle()).toBe("Alpha brief");
+    await runtime.remy.approve(started.actionId);
+
+    expect(await settled).toMatchObject({
+      ok: true,
+      actionId: started.actionId,
+      status: "committed",
+      output: { documentId: "doc-1", title: "Launch brief" },
+    });
+    expect(runtime.remy.getReceipt(started.actionId)?.transport).toBe("mcp");
+  });
+
+  it("cancels a wait without deleting or changing the pending receipt", async () => {
+    const runtime = documentRuntime();
+    runtime.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
+    const started = await runtime.remy.run(runtime.renameDocument, {
+      documentId: "doc-1",
+      title: "Launch brief",
+    });
+    if (!started.ok) return;
+    const cancellation = new AbortController();
+    const settled = runtime.remy.waitForAction(started.actionId, {
+      signal: cancellation.signal,
+      timeoutMs: 1_000,
+    });
+
+    cancellation.abort();
+
+    expect(await settled).toMatchObject({
+      ok: false,
+      code: "WAIT_ABORTED",
+      status: "awaiting_approval",
+    });
+    expect(runtime.remy.getReceipt(started.actionId)?.status).toBe("awaiting_approval");
+  });
+
+  it("times out a wait without expiring the pending action", async () => {
+    const runtime = documentRuntime();
+    runtime.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
+    const started = await runtime.remy.run(runtime.renameDocument, {
+      documentId: "doc-1",
+      title: "Launch brief",
+    });
+    if (!started.ok) return;
+
+    expect(await runtime.remy.waitForAction(started.actionId, {
+      timeoutMs: 1,
+    })).toMatchObject({
+      ok: false,
+      code: "WAIT_TIMEOUT",
+      status: "awaiting_approval",
+    });
+    expect(runtime.remy.getReceipt(started.actionId)?.status).toBe("awaiting_approval");
+  });
+
+  it("reports a failed approved action through the same pending wait", async () => {
+    const runtime = documentRuntime();
+    runtime.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
+    const started = await runtime.remy.run(runtime.renameDocument, {
+      documentId: "doc-1",
+      title: "LOCKED",
+    });
+    if (!started.ok) return;
+
+    const settled = runtime.remy.waitForAction(started.actionId, {
+      timeoutMs: 1_000,
+    });
+    await runtime.remy.approve(started.actionId);
+
+    expect(await settled).toMatchObject({
+      ok: false,
+      actionId: started.actionId,
+      status: "failed",
+      code: "DOCUMENT_LOCKED",
+    });
+    expect(runtime.remy.getReceipt(started.actionId)?.status).toBe("failed");
+  });
+
   it("persists only versioned, bounded semantic journal data", async () => {
     const store = createMemoryJournalStore();
     const runtime = documentRuntime({ journal: store });

@@ -39,6 +39,7 @@ The repository enforces these boundaries:
 - `remy.defineAction(definition)`
 - `remy.register(action)`
 - `remy.run(action, input, meta?)`
+- `remy.waitForAction(receiptId, options?)`
 - `remy.approve(receiptId)` and `remy.reject(receiptId)`
 - `remy.revert(receiptId, meta?)`
 - `registerWebMCP(remy, options?)`
@@ -55,14 +56,19 @@ protocol dispatch. Application calls remain typed by the action object.
 3. `preview` reads host context and describes resources and semantic changes.
 4. The selected policy returns `allow`, `require_approval`, `stage`, or `deny`.
 5. Allowed work calls the host's existing function in `execute`; paused work
-   retains private execution data in memory until approval.
-6. Remy appends bounded receipts and events and publishes a cached snapshot.
-7. Exact or compensating recovery calls the declared host recovery function
+   retains private execution data in memory and an adapter may wait on its
+   protocol-neutral action record until approval.
+6. Approval, rejection, timeout, and transport cancellation all preserve the
+   receipt. Only approval executes the pending side effect.
+7. Remy appends bounded receipts and events and publishes a cached snapshot.
+8. Exact or compensating recovery calls the declared host recovery function
    after resource-version checks, then appends a linked recovery receipt.
 
 Adapters translate protocols. They do not decide policy or implement business
-logic. UI reads snapshots and invokes the same core methods; it is never an
-alternative execution path.
+logic. WebMCP maps a pending action record to an unresolved tool promise; MCP,
+agent SDK, HTTP, or queue adapters can await or resume the same record without
+changing its definition. UI reads snapshots and invokes the same core methods;
+it is never an alternative execution path.
 
 ## Host-owned state
 

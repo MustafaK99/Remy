@@ -38,6 +38,7 @@ import type {
   RunResult,
   SemanticChange,
   StandardSchemaV1,
+  WaitForActionOptions,
 } from "./public-types";
 
 type Listener = () => void;
@@ -66,6 +67,16 @@ const DEFAULT_CONTROLS: ControlSettings = Object.freeze({
   paused: false,
   grants: Object.freeze([]),
 });
+
+const DEFAULT_ACTION_WAIT_MS = 120_000;
+const PENDING_ACTION_STATUSES = new Set<ActionStatus>([
+  "proposed",
+  "staged",
+  "awaiting_approval",
+  "executing",
+  "revert_requested",
+  "reverting",
+]);
 
 function defaultId(kind: "receipt" | "event" | "control") {
   const random = globalThis.crypto?.randomUUID?.() ??
@@ -215,6 +226,89 @@ export class RemyClient<Context> {
   getServerSnapshot = () => this.serverSnapshot;
 
   getReceipt = (receiptId: string) => this.receipts.get(receiptId);
+
+  /**
+   * Wait for an existing action record to settle, regardless of which adapter
+   * or transport created it. Cancellation only stops the wait; the append-only
+   * receipt remains available for later approval, rejection, or inspection.
+   */
+  waitForAction(
+    actionId: string,
+    options: WaitForActionOptions = {},
+  ): Promise<RunResult> {
+    const currentResult = () => {
+      const receipt = this.receipts.get(actionId);
+      if (!receipt) {
+        return {
+          ok: false,
+          actionId,
+          code: "RECEIPT_NOT_FOUND",
+          error: "No recorded action exists with this id.",
+        } satisfies RunResult;
+      }
+      return PENDING_ACTION_STATUSES.has(receipt.status)
+        ? undefined
+        : this.resultForExisting(actionId);
+    };
+
+    const settled = currentResult();
+    if (settled) return Promise.resolve(settled);
+
+    const timeoutMs = options.timeoutMs ?? DEFAULT_ACTION_WAIT_MS;
+    if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+      return Promise.resolve({
+        ok: false,
+        actionId,
+        code: "INVALID_WAIT_TIMEOUT",
+        error: "timeoutMs must be a finite, non-negative number.",
+      });
+    }
+    if (options.signal?.aborted) {
+      return Promise.resolve({
+        ok: false,
+        actionId,
+        status: this.receipts.get(actionId)?.status,
+        code: "WAIT_ABORTED",
+        error: "Waiting was cancelled. The action record was preserved.",
+      });
+    }
+
+    return new Promise<RunResult>((resolve) => {
+      let finished = false;
+      let unsubscribe: () => void = () => undefined;
+
+      const finish = (result: RunResult) => {
+        if (finished) return;
+        finished = true;
+        unsubscribe();
+        clearTimeout(timer);
+        options.signal?.removeEventListener("abort", onAbort);
+        resolve(result);
+      };
+      const onAbort = () => finish({
+        ok: false,
+        actionId,
+        status: this.receipts.get(actionId)?.status,
+        code: "WAIT_ABORTED",
+        error: "Waiting was cancelled. The action record was preserved.",
+      });
+      const check = () => {
+        const result = currentResult();
+        if (result) finish(result);
+      };
+
+      const timer = setTimeout(() => finish({
+        ok: false,
+        actionId,
+        status: this.receipts.get(actionId)?.status,
+        code: "WAIT_TIMEOUT",
+        error: "The action is still waiting for a decision. Its receipt was preserved.",
+      }), timeoutMs);
+      unsubscribe = this.subscribe(check);
+      options.signal?.addEventListener("abort", onAbort, { once: true });
+      check();
+    });
+  }
 
   getLastStoreError = () => this.lastStoreError;
 
@@ -786,6 +880,24 @@ export class RemyClient<Context> {
   private resultForExisting(actionId: string): RunResult {
     const receipt = this.receipts.get(actionId);
     if (!receipt) return { ok: false, code: "RECEIPT_NOT_FOUND", error: "The idempotent receipt is unavailable." };
+    if (receipt.status === "denied") {
+      return {
+        ok: false,
+        actionId,
+        status: "denied",
+        code: receipt.errorCode ?? "POLICY_DENIED",
+        error: receipt.policyDecision.reason,
+      };
+    }
+    if (receipt.status === "failed") {
+      return {
+        ok: false,
+        actionId,
+        status: "failed",
+        code: receipt.errorCode ?? "ACTION_FAILED",
+        error: "The recorded action failed.",
+      };
+    }
     return {
       ok: true,
       actionId,

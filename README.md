@@ -16,9 +16,10 @@ Agent-enabled applications usually force a poor choice: interrupt the user for e
 
 - Applies preview, ask, reversible, or trusted autonomy policy to agent actions.
 - Shows explicit approvals with human-readable before-and-after changes.
+- Keeps approval-gated invocations pending so the same agent run can resume after the person decides.
 - Records bounded receipts without prompts, transcripts, DOM recordings, or application state.
 - Supports exact undo, compensating recovery, and explicitly irreversible actions.
-- Exposes the same registered actions through WebMCP.
+- Treats every invocation as a protocol-neutral action record, then exposes the same actions through WebMCP.
 - Leaves authentication, authorisation, state, and business logic with the host application.
 
 ## Five-minute local quick start
@@ -96,10 +97,10 @@ Reset demo clears application state, receipts, pending approvals, controls, and 
 
 1. Run `npm run dev` and open `http://localhost:3000/demo` in a browser that implements `document.modelContext`.
 2. Confirm Remy says **Ready for an assistant**.
-3. Ask naturally: **“Buy me one pair of Morrow One headphones in Charcoal. Apply any available discount, use express delivery, and let me approve before placing the order.”**
-4. Open Remy and inspect the three automatic changes and the purchase waiting for approval. The `prepare_demo_order` shortcut reduces browser round trips while preserving a separate Remy receipt for every underlying action.
+3. Ask naturally: **“Buy me one pair of Morrow One headphones in Charcoal. Apply any available discount and use express delivery. Stop and let me approve the final purchase myself.”**
+4. Open Remy and inspect the three automatic changes and the purchase waiting for approval. The WebMCP invocation remains pending while the user decides; the `prepare_demo_order` shortcut reduces browser round trips while preserving a separate Remy receipt for every underlying action.
 5. Undo express delivery and confirm the total becomes £115 while both the original and recovery receipt remain.
-6. Press and hold to approve the explicit purchase request, or reject it.
+6. Press and hold to approve the explicit purchase request, or reject it. The original WebMCP invocation then resolves, so the agent can continue in the same run without a second prompt.
 
 The implementation calls [`document.modelContext.registerTool(...)`](./packages/webmcp/src/index.ts) imperatively. Unsupported browsers show a clear status and keep the ordinary order page usable.
 
@@ -110,6 +111,7 @@ The implementation calls [`document.modelContext.registerTool(...)`](./packages/
 | Policy | A replaceable decision function that allows, stages, denies, or requests approval. |
 | Autonomy | Four built-in modes: preview only, ask on changes, reversible actions, and trusted run. |
 | Receipt | A bounded, human-readable record of an action, decision, outcome, and resource versions. |
+| Pending wait | A cancellable, bounded wait on an action record. Cancellation never deletes the receipt or decision. |
 | Exact undo | Restores a recorded previous value when resource-version checks still pass. |
 | Compensation | Runs a new corrective action, such as cancelling a courier booking. |
 | Irreversible | Declares that no recovery handler exists and lets policy require approval. |
@@ -154,9 +156,9 @@ The same non-browser checks run on pushes to `master` or `main` and on pull requ
 
 ## WebMCP challenge implementation
 
-The Morrow demo registers application-neutral action definitions through the real WebMCP adapter. It demonstrates runtime schema validation, self-reported agent attribution, four autonomy modes, human permission escalation, approval and rejection, exact recovery, append-only receipts, stale-approval checks, resource-version protection, idempotency, reset, registration cleanup, and a graceful unsupported-browser path.
+The Morrow demo registers application-neutral action definitions through the real WebMCP adapter. It demonstrates runtime schema validation, self-reported agent attribution, four autonomy modes, same-run asynchronous approval, human permission escalation, approval and rejection, exact recovery, append-only receipts, stale-approval checks, resource-version protection, idempotency, reset, registration cleanup, and a graceful unsupported-browser path.
 
-WebMCP is the first adapter, not the entire product. Planned adapters are not represented as shipped.
+Every action is recorded and settled in `@remy-ai/core`; WebMCP only adapts that lifecycle to the browser. Other adapters can call `runByName()` and `waitForAction()` against the same action record. WebMCP is the first adapter, not the entire product. Planned adapters are not represented as shipped.
 
 ## Roadmap
 

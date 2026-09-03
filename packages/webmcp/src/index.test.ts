@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
-import { createRemy, succeed } from "@remy-ai/core";
+import {
+  createRemy,
+  succeed,
+  type ActionReceipt,
+  type ActionStatus,
+  type RemyClient,
+} from "@remy-ai/core";
 import {
   registerWebMCP,
   type WebMCPModelContext,
@@ -55,6 +61,27 @@ function registryMock() {
   return { active, modelContext, getAborted: () => aborted };
 }
 
+function waitForReceiptStatus<Context>(
+  remy: RemyClient<Context>,
+  status: ActionStatus,
+): Promise<ActionReceipt> {
+  const find = () => remy.getSnapshot().receipts.find((receipt) => receipt.status === status);
+  const existing = find();
+  if (existing) return Promise.resolve(existing);
+
+  return new Promise((resolve) => {
+    let unsubscribe: () => void = () => undefined;
+    const check = () => {
+      const receipt = find();
+      if (!receipt) return;
+      unsubscribe();
+      resolve(receipt);
+    };
+    unsubscribe = remy.subscribe(check);
+    check();
+  });
+}
+
 describe("generic WebMCP adapter", () => {
   it("exposes a non-commerce action with generated JSON Schema", async () => {
     const app = documentRemy();
@@ -76,11 +103,40 @@ describe("generic WebMCP adapter", () => {
     expect(app.getTitle()).toBe("Launch plan");
   });
 
-  it("tells an agent to stop when an action needs the user's approval", async () => {
+  it("keeps a WebMCP invocation open until the recorded action is approved", async () => {
     const app = documentRemy();
     app.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
     const registry = registryMock();
     await registerWebMCP(app.remy, { modelContext: registry.modelContext });
+
+    let settled = false;
+    const invocation = Promise.resolve(
+      registry.active.get("rename_document")!.execute({ title: "Launch plan" }),
+    ).finally(() => {
+      settled = true;
+    });
+    const pending = await waitForReceiptStatus(app.remy, "awaiting_approval");
+    expect(settled).toBe(false);
+    expect(app.getTitle()).toBe("Draft");
+    await app.remy.approve(pending.id);
+
+    expect(await invocation).toMatchObject({
+      ok: true,
+      actionId: pending.id,
+      status: "committed",
+      output: { title: "Launch plan" },
+    });
+    expect(app.getTitle()).toBe("Launch plan");
+  });
+
+  it("can return the pending receipt immediately for hosts that cannot wait", async () => {
+    const app = documentRemy();
+    app.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
+    const registry = registryMock();
+    await registerWebMCP(app.remy, {
+      modelContext: registry.modelContext,
+      awaitApproval: false,
+    });
 
     expect(await registry.active.get("rename_document")!.execute({ title: "Launch plan" })).toMatchObject({
       ok: true,
@@ -90,6 +146,27 @@ describe("generic WebMCP adapter", () => {
       approvalInstruction: expect.stringContaining("Do not click"),
     });
     expect(app.getTitle()).toBe("Draft");
+  });
+
+  it("preserves a pending receipt when the WebMCP host cancels its wait", async () => {
+    const app = documentRemy();
+    app.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
+    const registry = registryMock();
+    await registerWebMCP(app.remy, { modelContext: registry.modelContext });
+    const cancellation = new AbortController();
+    const invocation = registry.active.get("rename_document")!.execute(
+      { title: "Launch plan" },
+      { signal: cancellation.signal },
+    );
+    await waitForReceiptStatus(app.remy, "awaiting_approval");
+
+    cancellation.abort();
+
+    expect(await invocation).toMatchObject({
+      ok: false,
+      code: "WAIT_ABORTED",
+    });
+    expect(app.remy.getSnapshot().receipts.at(-1)?.status).toBe("awaiting_approval");
   });
 
   it("cleans up every tool and does not leave Strict Mode duplicates", async () => {
