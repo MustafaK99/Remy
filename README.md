@@ -95,11 +95,11 @@ Reset demo clears application state, receipts, pending approvals, controls, and 
 ## Testing with WebMCP
 
 1. Run `npm run dev` and open `http://localhost:3000/demo` in a browser that implements `document.modelContext`.
-2. Confirm the page says **WebMCP ready**.
-3. Ask the browser agent: **“Use the site tools in this tab. Identify yourself as ChatGPT, then prepare one Charcoal Morrow One with express delivery and HELLO10.”** The `prepare_demo_order` shortcut makes one browser call while preserving a separate Remy receipt for every underlying change.
-4. Open Remy and inspect the three automatic receipts.
+2. Confirm Remy says **Ready for an assistant**.
+3. Ask naturally: **“Buy me one pair of Morrow One headphones in Charcoal. Apply any available discount, use express delivery, and complete the order.”**
+4. Open Remy and inspect the three automatic changes and the purchase waiting for approval. The `prepare_demo_order` shortcut reduces browser round trips while preserving a separate Remy receipt for every underlying action.
 5. Undo express delivery and confirm the total becomes £115 while both the original and recovery receipt remain.
-6. Ask **“Buy it.”**, then approve or reject the explicit purchase request.
+6. Approve or reject the explicit purchase request.
 
 The implementation calls [`document.modelContext.registerTool(...)`](./packages/webmcp/src/index.ts) imperatively. Unsupported browsers show a clear status and keep the ordinary order page usable.
 
