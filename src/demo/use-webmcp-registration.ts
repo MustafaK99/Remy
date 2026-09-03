@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { RemyClient } from "@/remy/core";
-import { registerWebMCP, type WebMCPStatus } from "./webmcp";
+import type { RemyClient } from "@remy-ai/core";
+import { registerWebMCP, type WebMCPStatus } from "@remy-ai/webmcp";
 
 export function useWebMCPRegistration<Context>(remy: RemyClient<Context>) {
   const [status, setStatus] = useState<WebMCPStatus>("checking");

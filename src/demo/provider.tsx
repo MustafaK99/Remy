@@ -10,8 +10,8 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import type { ActionReceipt, RunResult } from "@/remy/core";
-import { useRemySnapshot } from "@/remy/react";
+import type { ActionReceipt, RunResult } from "@remy-ai/core";
+import { useRemySnapshot } from "@remy-ai/react";
 import { createDemoRuntime, type DemoRuntime } from "./runtime";
 
 export type ControlMode = "preview" | "ask" | "safe" | "full";

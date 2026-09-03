@@ -5,7 +5,7 @@ import {
   type Clock,
   type IdGenerator,
   type Policy,
-} from "@/remy/core";
+} from "@remy-ai/core";
 import { registerDemoActions } from "./actions";
 import { clearDemoState, loadDemoState, saveDemoState } from "./persistence";
 import { createDemoStore } from "./store";

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createRemy, succeed } from "@/remy/core";
+import { createRemy, succeed } from "@remy-ai/core";
 import {
   registerWebMCP,
   type WebMCPModelContext,
   type WebMCPTool,
-} from "./webmcp";
+} from "./index";
 
 function documentRemy() {
   let title = "Draft";

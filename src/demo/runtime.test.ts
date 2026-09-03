@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { summarizeActionRun } from "@/remy/core";
+import { summarizeActionRun } from "@remy-ai/core";
 import { RESOURCE_KEYS } from "./data";
 import { createDemoRuntime } from "./runtime";
 

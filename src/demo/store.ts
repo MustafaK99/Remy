@@ -1,4 +1,4 @@
-import type { ResourceVersionProvider } from "@/remy/core";
+import type { ResourceVersionProvider } from "@remy-ai/core";
 import { createInitialDemoState, type DemoState } from "./data";
 
 type Listener = () => void;

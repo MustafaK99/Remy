@@ -24,17 +24,17 @@ export function CopyButton({
     <button
       type="button"
       onClick={copy}
-      className={`inline-flex h-8 shrink-0 items-center gap-2 border px-2.5 font-mono text-[9px] font-semibold uppercase tracking-[0.08em] transition-colors ${
+      className={`inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 border px-3 font-mono text-[11px] font-semibold transition-colors ${
         tone === "dark"
           ? "border-white/22 bg-white/6 text-white/72 hover:border-white/45 hover:bg-white/10"
-          : "border-black/14 bg-white/55 text-[#4d514b] hover:border-black/30 hover:bg-white"
+          : "border-[var(--line)] bg-[var(--paper-strong)] text-[var(--ink-soft)] hover:border-[var(--line-strong)]"
       }`}
       aria-label={`${label}: ${value}`}
     >
       {copied ? (
-        <Check className="size-3 text-[#70d5aa]" />
+        <Check className="size-3.5 text-[var(--success)]" />
       ) : (
-        <Copy className="size-3" />
+        <Copy className="size-3.5" />
       )}
       {copied ? "Copied" : label}
     </button>

@@ -13,8 +13,9 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type { WebMCPStatus } from "@/remy/adapters/webmcp";
-import type { ActionReceipt } from "@/remy/core";
+import type { WebMCPStatus } from "@remy-ai/webmcp";
+import type { ActionReceipt } from "@remy-ai/core";
+import { AutonomySlider } from "@/components/autonomy-slider";
 import {
   latestAwaitingReceipt,
   useDemoRemy,
@@ -217,10 +218,6 @@ export function ActionCenter({
     controlOptions.findIndex((option) => option.value === controlMode),
   );
   const selectedOption = controlOptions[optionIndex];
-  const stepPercent = 100 / (controlOptions.length - 1);
-  const stepOffset = 24 / (controlOptions.length - 1);
-  const railPosition = (index: number) =>
-    `calc(12px + ${index * stepPercent}% - ${index * stepOffset}px)`;
   const assistantName = snapshot.activePrincipal?.name;
   const assistantLine = assistantName
     ? `${assistantName} is using this shop`
@@ -297,78 +294,12 @@ export function ActionCenter({
             </header>
 
             <section className="border-b border-[#19362e]/12 bg-[#f3eadc] px-5 py-5">
-              <div className="flex items-baseline justify-between gap-4">
-                <h3 className="text-sm font-black">AI access</h3>
-                <span className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[#557067]">
-                  {selectedOption.label}
-                </span>
-              </div>
-
-              <div className="relative mt-4 h-10 focus-within:ring-2 focus-within:ring-[#ef704f] focus-within:ring-offset-2 focus-within:ring-offset-[#f3eadc]">
-                <div className="absolute left-3 right-3 top-1/2 h-[3px] -translate-y-1/2 bg-[#c7cfc7]" />
-                <motion.div
-                  className="absolute left-3 top-1/2 h-[3px] -translate-y-1/2 bg-[#ef704f]"
-                  animate={{ width: `calc(${optionIndex * stepPercent}% - ${optionIndex * stepOffset}px)` }}
-                  transition={{ type: "spring", stiffness: 310, damping: 31 }}
-                />
-                {controlOptions.map((option, index) => (
-                  <span
-                    key={option.value}
-                    className={`absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 border-2 border-[#f3eadc] ${
-                      index <= optionIndex ? "bg-[#ef704f]" : "bg-[#9ba9a1]"
-                    }`}
-                    style={{ left: railPosition(index) }}
-                  />
-                ))}
-                <motion.span
-                  className="absolute top-1/2 grid size-7 -translate-x-1/2 -translate-y-1/2 place-items-center border-2 border-[#19362e] bg-[#f4c95d]"
-                  animate={{ left: railPosition(optionIndex) }}
-                  transition={{ type: "spring", stiffness: 420, damping: 30 }}
-                >
-                  <selectedOption.icon className="size-3.5" strokeWidth={2.5} />
-                </motion.span>
-                <input
-                  aria-label="AI access"
-                  aria-valuetext={selectedOption.label}
-                  type="range"
-                  min={0}
-                  max={controlOptions.length - 1}
-                  step={1}
-                  value={optionIndex}
-                  onChange={(event) =>
-                    setControlMode(controlOptions[Number(event.target.value)].value)
-                  }
-                  className="absolute inset-0 z-10 h-full w-full cursor-ew-resize opacity-0"
-                />
-              </div>
-
-              <div className="grid grid-cols-4 gap-1">
-                {controlOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setControlMode(option.value)}
-                    className={`text-[10px] font-bold transition-colors ${
-                      option.value === controlMode
-                        ? "text-[#19362e]"
-                        : "text-[#87928d] hover:text-[#52675e]"
-                    }`}
-                  >
-                    {option.shortLabel}
-                  </button>
-                ))}
-              </div>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.p
-                  key={selectedOption.value}
-                  initial={{ opacity: 0, y: 3 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -3 }}
-                  className="mt-3 min-h-5 text-xs leading-5 text-[#596d64]"
-                >
-                  {selectedOption.description}
-                </motion.p>
-              </AnimatePresence>
+              <AutonomySlider
+                label="AI access"
+                value={controlMode}
+                options={controlOptions}
+                onChange={setControlMode}
+              />
 
               <div className="mt-4 flex items-center justify-between gap-4 border-t border-[#19362e]/12 pt-4">
                 <div>

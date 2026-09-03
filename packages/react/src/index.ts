@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { RemyClient } from "@/remy/core";
+import type { RemyClient } from "@remy-ai/core";
 
 export function useRemySnapshot<Context>(remy: RemyClient<Context>) {
   return useSyncExternalStore(

@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { registerWebMCP } from "../src/remy/adapters/webmcp";
-import { createRemy, succeed } from "../src/remy/core";
+import { createRemy, succeed } from "@remy-ai/core";
+import { registerWebMCP } from "@remy-ai/webmcp";
 
 export type DocumentService = {
   readonly getTitle: () => string;

@@ -23,9 +23,9 @@ UI and persist its own state while an action executes.
 
 The repository enforces these boundaries:
 
-- `src/remy/core` imports no React, Next.js, WebMCP, or demo modules.
-- `src/remy/adapters/webmcp.ts` imports only the curated core entry point.
-- `src/remy/react` imports only React and public core contracts.
+- `packages/core/src` imports no React, Next.js, WebMCP, or demo modules.
+- `packages/webmcp/src` imports only the curated core package entry point.
+- `packages/react/src` imports only React and public core contracts.
 - `src/demo` may compose the core, adapter, React hook, and Morrow services.
 - Package-oriented code has no Tailwind or Next.js dependency.
 
@@ -33,7 +33,7 @@ The repository enforces these boundaries:
 
 ## Public surface
 
-`src/remy/core/index.ts` is the core entry point. The principal alpha API is:
+`packages/core/src/index.ts` is the core entry point. The principal alpha API is:
 
 - `createRemy(options)`
 - `remy.defineAction(definition)`
@@ -119,14 +119,17 @@ identities. `useRemySnapshot()` is a thin `useSyncExternalStore` wrapper. Engine
 creation remains in host/demo code so React Strict Mode cannot silently create
 or register a second runtime.
 
-## Extraction path
+## Published-package shape
 
-The current repository is not published as packages. Its boundaries are shaped
-so extraction is mechanical:
+The source now matches the intended package boundaries:
 
-- `src/remy/core` → `@remy-ai/core`
-- `src/remy/react` → `@remy-ai/react`
-- `src/remy/adapters/webmcp.ts` → `@remy-ai/webmcp`
+- `packages/core` → `@remy-ai/core`
+- `packages/react` → `@remy-ai/react`
+- `packages/webmcp` → `@remy-ai/webmcp`
+
+Each package builds ESM and declarations, contains no site alias, and is tested
+from packed tarballs in a temporary project. npm publication remains a manual
+release-owner step.
 
 MCP and agent-SDK adapters should consume the same action descriptors and
 string-dispatch boundary. They should not require action definitions or host

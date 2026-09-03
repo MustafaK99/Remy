@@ -11,12 +11,13 @@ export const metadata: Metadata = {
     "Define typed Remy actions, apply policy and recovery, and expose them through WebMCP.",
 };
 
-const localCommands = `git clone https://github.com/MustafaK99/Remy.git
-cd Remy
-npm ci
-npm run dev`;
+const installCommands = `npm install @remy-ai/core @remy-ai/webmcp`;
 
-const quickstartCode = `const remy = createRemy({ context: () => documentService })
+const quickstartCode = `import { createRemy, succeed } from "@remy-ai/core"
+import { registerWebMCP } from "@remy-ai/webmcp"
+import { z } from "zod"
+
+const remy = createRemy({ context: () => documentService })
 
 const renameDocument = remy.defineAction({
   name: "rename_document",
@@ -25,16 +26,29 @@ const renameDocument = remy.defineAction({
   kind: "write",
   input: z.strictObject({ title: z.string().min(1).max(120) }),
   risk: "low",
-  preview: previewRename,
-  execute: renameWithExistingService,
-  recovery: { kind: "exact", execute: restorePreviousTitle },
+  preview: ({ input, context }) => ({
+    summary: \`Rename document to \${input.title}.\`,
+    changes: [{ label: "Title", before: context.title, after: input.title }],
+    recovery: { title: context.title },
+  }),
+  execute: ({ input, context }) => {
+    context.rename(input.title)
+    return succeed({ title: input.title })
+  },
+  recovery: {
+    kind: "exact",
+    execute: ({ receipt, context }) => {
+      context.rename(receipt.recovery.title)
+      return succeed({ title: receipt.recovery.title })
+    },
+  },
 })
 
 remy.register(renameDocument)
 await registerWebMCP(remy, { signal })`;
 
 const minimalAction = `import { z } from "zod"
-import { createRemy, succeed } from "@/remy/core"
+import { createRemy, succeed } from "@remy-ai/core"
 
 const remy = createRemy({
   context: () => documentService,
@@ -89,7 +103,7 @@ if (!result.ok) {
   console.error(result.code, result.error)
 }`;
 
-const policyCode = `import type { Policy } from "@/remy/core"
+const policyCode = `import type { Policy } from "@remy-ai/core"
 
 export const documentPolicy: Policy = ({ action, controls }) => {
   if (controls.paused) {
@@ -130,7 +144,7 @@ const irreversibleCode = `const publishDocument = remy.defineAction({
   recovery: { kind: "irreversible" },
 })`;
 
-const webMcpCode = `import { registerWebMCP } from "@/remy/adapters/webmcp"
+const webMcpCode = `import { registerWebMCP } from "@remy-ai/webmcp"
 
 const lifecycle = new AbortController()
 const registration = await registerWebMCP(remy, {
@@ -146,8 +160,8 @@ lifecycle.abort()`;
 
 const reactCode = `"use client"
 
-import type { RemyClient } from "@/remy/core"
-import { useRemySnapshot } from "@/remy/react"
+import type { RemyClient } from "@remy-ai/core"
+import { useRemySnapshot } from "@remy-ai/react"
 
 export function AgentActivity({
   remy,
@@ -171,7 +185,6 @@ export function AgentActivity({
 }`;
 
 const navigation = [
-  ["Introduction", "#introduction"],
   ["Five-minute quickstart", "#quickstart"],
   ["Core concepts", "#concepts"],
   ["Define an action", "#define"],
@@ -191,7 +204,7 @@ const navigation = [
 
 export default function DocsPage() {
   return (
-    <main className="min-h-screen bg-[#f4f1ea] text-[#17241f]">
+    <main className="min-h-screen bg-[var(--paper)] text-[var(--ink)]">
       <SiteHeader tone="paper" />
 
       <div className="mx-auto grid max-w-[1380px] border-x border-[#17241f]/10 px-5 py-14 sm:px-8 lg:grid-cols-[220px_minmax(0,860px)] lg:justify-center lg:gap-16 lg:px-12 lg:py-20">
@@ -242,44 +255,28 @@ export default function DocsPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="#quickstart" className="inline-flex h-11 items-center gap-2 bg-[#17241f] px-4 text-sm font-medium text-white hover:bg-[#294238]">
-              Start locally <ArrowRight className="size-4" />
+              Install Remy <ArrowRight className="size-4" />
             </Link>
             <a href="https://github.com/MustafaK99/Remy/blob/master/examples/minimal.ts" target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-[#17241f]/20 px-4 text-sm font-medium hover:border-[#17241f]/45">
               Complete example <ArrowRight className="size-4" />
             </a>
           </div>
 
-          <DocSection id="introduction" number="01" title="Introduction">
+          <DocSection id="quickstart" number="01" title="Five-minute quickstart">
             <p>
-              Remy wraps the functions and services an application already
-              uses. Your application continues to own its data, authentication,
-              authorisation, editor history, side effects, and interface.
+              Install the core and WebMCP adapter. The alpha tarballs are built
+              and verified; the public npm command becomes available when the
+              release owner completes the final publish step.
             </p>
-            <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="Safe work" detail="Low-risk, recoverable actions can run without an interruption." />
-              <DocRow name="Consequential work" detail="Policy pauses the action and returns an explicit approval state." />
-              <DocRow name="After execution" detail="A bounded semantic receipt explains what changed and how it can be recovered." />
-            </div>
-            <Callout tone="success">
-              Remy controls state-changing actions. It does not record prompts,
-              browse the DOM, or govern model responses.
-            </Callout>
-          </DocSection>
-
-          <DocSection id="quickstart" number="02" title="Five-minute quickstart">
-            <p>
-              Packages are not published yet. Run the verified source with
-              Node.js 20 or newer:
-            </p>
-            <CodeBlock value={localCommands} filename="Terminal" />
+            <CodeBlock value={installCommands} filename="Terminal" />
             <p className="mt-5">
-              Open <InlineCode>http://localhost:3000/demo</InlineCode>. Then read
-              the complete, compilable <a href="https://github.com/MustafaK99/Remy/blob/master/examples/minimal.ts" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">document example</a>.
-              The whole setup is this shape:
+              Create a client around the service your application already owns,
+              wrap one function, register the action, then expose it through
+              WebMCP. The complete version lives in the typechecked <a href="https://github.com/MustafaK99/Remy/blob/master/examples/minimal.ts" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">document example</a>.
             </p>
             <CodeBlock value={quickstartCode} filename="Five-minute shape" />
             <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="Run" detail="Clone the alpha source; no package install is claimed yet." />
+              <DocRow name="Install" detail="Install core and the adapters your application uses. React stays optional." />
               <DocRow name="Define" detail="Pass one schema and wrap existing preview, execute, and recovery functions." />
               <DocRow name="Expose" detail="registerWebMCP creates imperative tools and uses the same runtime validation." />
               <DocRow name="Approve" detail="A paused run returns awaiting_approval; render that receipt in your own UI." />
@@ -287,12 +284,17 @@ export default function DocsPage() {
               <DocRow name="Enforce" detail="Keep authentication, authorisation, and side effects authoritative in the host service." />
             </div>
             <Callout>
-              Do not run <InlineCode>npx @remy-ai/cli init</InlineCode>. The
-              one-call install and public packages are planned, not shipped.
+              Remy wraps host functions. Keep authentication, authorisation,
+              state, and durable side effects authoritative in your application.
             </Callout>
           </DocSection>
 
-          <DocSection id="concepts" number="03" title="Core concepts">
+          <DocSection id="concepts" number="02" title="Core concepts">
+            <p className="mb-6">
+              Remy wraps the functions and services an application already uses.
+              Your application keeps its data, authentication, authorisation,
+              editor history, side effects, and interface.
+            </p>
             <div className="border-t border-[#17241f]/12">
               <DocRow name="Application context" detail="A function returning your existing services. Remy never owns application state." />
               <DocRow name="Action" detail="A typed semantic operation with input, preview, execution, risk, and truthful recovery." />
@@ -303,7 +305,7 @@ export default function DocsPage() {
             </div>
           </DocSection>
 
-          <DocSection id="define" number="04" title="Define an action">
+          <DocSection id="define" number="03" title="Define an action">
             <p>
               Call <InlineCode>remy.defineAction()</InlineCode> so the context,
               schema input, execution output, and recovery material are inferred.
@@ -325,7 +327,7 @@ export default function DocsPage() {
             </Callout>
           </DocSection>
 
-          <DocSection id="policy" number="05" title="Policy and capabilities">
+          <DocSection id="policy" number="04" title="Policy and capabilities">
             <p>
               Built-in preview, ask, reversible, and trusted modes are presets.
               Supply a custom policy when the application needs different rules.
@@ -345,7 +347,7 @@ export default function DocsPage() {
             </p>
           </DocSection>
 
-          <DocSection id="exact" number="06" title="Exact recovery">
+          <DocSection id="exact" number="05" title="Exact recovery">
             <p>
               Exact recovery restores the previous state. The preview returns
               typed private recovery material; the recovery handler consumes it.
@@ -358,7 +360,7 @@ export default function DocsPage() {
             </Callout>
           </DocSection>
 
-          <DocSection id="compensation" number="07" title="Compensation">
+          <DocSection id="compensation" number="06" title="Compensation">
             <p>
               Some effects cannot be rewound. A compensating recovery performs a
               new corrective action, such as cancelling a booking.
@@ -373,7 +375,7 @@ export default function DocsPage() {
             </p>
           </DocSection>
 
-          <DocSection id="irreversible" number="08" title="Irreversible actions">
+          <DocSection id="irreversible" number="07" title="Irreversible actions">
             <p>
               Irreversible definitions expose no recovery handler. TypeScript
               rejects a fake undo on this branch of the action union. Use an
@@ -385,7 +387,7 @@ export default function DocsPage() {
             </p>
           </DocSection>
 
-          <DocSection id="webmcp" number="09" title="WebMCP adapter">
+          <DocSection id="webmcp" number="08" title="WebMCP adapter">
             <p>
               The headless adapter imports only public core contracts. It feature
               detects <InlineCode>document.modelContext</InlineCode>, converts the
@@ -406,7 +408,7 @@ export default function DocsPage() {
             </Callout>
           </DocSection>
 
-          <DocSection id="react" number="10" title="React integration">
+          <DocSection id="react" number="09" title="React integration">
             <p>
               React is optional. <InlineCode>useRemySnapshot(remy)</InlineCode>
               uses the engine as a proper external store with stable subscriptions
@@ -424,7 +426,7 @@ export default function DocsPage() {
             </p>
           </DocSection>
 
-          <DocSection id="persistence" number="11" title="Persistence and privacy">
+          <DocSection id="persistence" number="10" title="Persistence and privacy">
             <p>
               The application and Remy have separate persistence boundaries.
               Remy stores schema-versioned semantic receipts and journal events;
@@ -444,12 +446,13 @@ export default function DocsPage() {
             </p>
           </DocSection>
 
-          <DocSection id="testing" number="12" title="Testing">
+          <DocSection id="testing" number="11" title="Testing">
             <p>Run the same checks used in CI:</p>
             <CodeBlock value={`npm run lint
 npm run typecheck
 npm run test:run
-npm run build`} filename="Terminal" />
+npm run build
+npm run verify:packages`} filename="Terminal" />
             <div className="mt-6 border-t border-[#17241f]/12">
               <DocRow name="Types" detail="Check inferred input/output and invalid recovery combinations with @ts-expect-error assertions." />
               <DocRow name="Policy" detail="Test allow, stage, deny, approvals, capabilities, and custom policy injection." />
@@ -458,7 +461,7 @@ npm run build`} filename="Terminal" />
             </div>
           </DocSection>
 
-          <DocSection id="security" number="13" title="Production checklist">
+          <DocSection id="security" number="12" title="Production checklist">
             <Checklist
               items={[
                 "Authenticate and authorise each state-changing operation at the server or owning service.",
@@ -474,8 +477,8 @@ npm run build`} filename="Terminal" />
             />
           </DocSection>
 
-          <DocSection id="api" number="14" title="API reference">
-            <p>These alpha exports are curated from <InlineCode>@/remy/core</InlineCode> in this repository.</p>
+          <DocSection id="api" number="13" title="API reference">
+            <p>These alpha exports are curated from <InlineCode>@remy-ai/core</InlineCode>, <InlineCode>@remy-ai/webmcp</InlineCode>, and <InlineCode>@remy-ai/react</InlineCode>.</p>
             <div className="mt-6 border-t border-[#17241f]/12">
               <DocRow name="createRemy(options)" detail="Create a generic client around a host-owned context, policy, resources, and journal." code />
               <DocRow name="remy.defineAction(definition)" detail="Infer context, input, output, and recovery types and validate configuration early." code />
@@ -490,7 +493,7 @@ npm run build`} filename="Terminal" />
             </div>
           </DocSection>
 
-          <DocSection id="troubleshooting" number="15" title="Troubleshooting">
+          <DocSection id="troubleshooting" number="14" title="Troubleshooting">
             <div className="border-t border-[#17241f]/12">
               <DocRow name="WebMCP unsupported" detail="The browser does not expose document.modelContext. Manual application use should still work." />
               <DocRow name="Schema registration failed" detail="Use a Standard Schema implementation with JSON Schema support or pass a restrictive jsonSchema override." />
@@ -498,15 +501,15 @@ npm run build`} filename="Terminal" />
               <DocRow name="STALE_APPROVAL" detail="A referenced resource changed after preview. Prepare the action again." />
               <DocRow name="VERSION_CONFLICT" detail="Later state makes exact recovery unsafe. Use an application-specific corrective path." />
               <DocRow name="RECOVERY_DATA_UNAVAILABLE" detail="Private recovery material is not persisted by default. Prepare a corrective action after reload." />
-              <DocRow name="CLI install fails" detail="Expected in this alpha. Clone the repository; public packages are roadmap work." />
+              <DocRow name="npm returns 404" detail="The prepared alpha package has not been published to the @remy-ai scope yet. The release owner must complete the npm publish checklist." />
             </div>
           </DocSection>
 
-          <DocSection id="roadmap" number="16" title="Roadmap and versioning">
+          <DocSection id="roadmap" number="15" title="Roadmap and versioning">
             <p>
               Receipts carry <InlineCode>schemaVersion: 1</InlineCode>; action
               definitions have their own version. The source API is alpha and may
-              still change before the packages are published. The boundary is
+              still change between alpha releases. The boundary is
               intentionally stable: host services → semantic actions → Remy core
               → adapters and optional UI.
             </p>

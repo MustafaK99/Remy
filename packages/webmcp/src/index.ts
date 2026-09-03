@@ -4,7 +4,7 @@ import type {
   Principal,
   RemyClient,
   RunResult,
-} from "@/remy/core";
+} from "@remy-ai/core";
 
 export type WebMCPStatus =
   | "checking"
@@ -129,7 +129,8 @@ function descriptorDescription(action: ActionDescriptor) {
 
 function getDocumentContext(): WebMCPModelContext | undefined {
   if (typeof document === "undefined") return undefined;
-  return document.modelContext;
+  return (document as Document & { readonly modelContext?: WebMCPModelContext })
+    .modelContext;
 }
 
 export async function registerWebMCP<Context>(
@@ -204,7 +205,7 @@ export async function registerWebMCP<Context>(
     execute: () => {
       const snapshot = remy.getSnapshot();
       return {
-        remy: { present: true, version: "0.2-alpha", headless: true },
+        remy: { present: true, version: "0.1.0-alpha", headless: true },
         controls: snapshot.controls,
         principal: snapshot.activePrincipal ?? null,
         pendingControlRequest: snapshot.pendingControlRequest ?? null,

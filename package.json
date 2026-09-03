@@ -7,13 +7,15 @@
   ],
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:packages && next build",
+    "build:packages": "npm run build --workspace @remy-ai/core && npm run build --workspace @remy-ai/webmcp && npm run build --workspace @remy-ai/react",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "cli": "node packages/cli/bin/remy.mjs"
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "verify:packages": "node scripts/verify-packages.mjs"
   },
   "dependencies": {
     "immer": "^11.1.18",
@@ -31,8 +33,13 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4",
+    "tsup": "^8.5.0",
     "typescript": "^5",
     "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
   }
 }

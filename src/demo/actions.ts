@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { succeed, type ActionReceipt, type RemyClient } from "@/remy/core";
+import { succeed, type ActionReceipt, type RemyClient } from "@remy-ai/core";
 import {
   RESOURCE_KEYS,
   getCartTotal,

@@ -23,7 +23,7 @@ import {
   type ProductColour,
 } from "@/demo/data";
 import { DemoRemyProvider, useDemoRemy } from "@/demo/provider";
-import { useWebMCPRegistration } from "@/remy/adapters/webmcp-react";
+import { useWebMCPRegistration } from "@/demo/use-webmcp-registration";
 import { ActionCenter } from "./action-center";
 
 const money = new Intl.NumberFormat("en-GB", {

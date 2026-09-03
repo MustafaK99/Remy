@@ -1,7 +1,7 @@
 "use client";
 
-import type { RemyClient } from "../src/remy/core";
-import { useRemySnapshot } from "../src/remy/react";
+import type { RemyClient } from "@remy-ai/core";
+import { useRemySnapshot } from "@remy-ai/react";
 
 export function AgentActivity({ remy }: { readonly remy: RemyClient<unknown> }) {
   const snapshot = useRemySnapshot(remy);

@@ -3,7 +3,7 @@
 import { ArrowRight, CircleAlert, X } from "lucide-react";
 import { motion } from "motion/react";
 import { useDemoRemy } from "@/demo/provider";
-import type { ActionReceipt } from "@/remy/core";
+import type { ActionReceipt } from "@remy-ai/core";
 
 export function ApprovalView({ receipt }: { receipt: ActionReceipt }) {
   const { approve, reject } = useDemoRemy();

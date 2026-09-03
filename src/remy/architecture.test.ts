@@ -26,30 +26,30 @@ function assertNoMatches(directory: string, forbidden: RegExp) {
 describe("Remy dependency boundaries", () => {
   it("keeps core independent of frameworks, protocols, and demo code", () => {
     assertNoMatches(
-      join(root, "src", "remy", "core"),
+      join(root, "packages", "core", "src"),
       /(?:from|import\()\s*["'](?:react|next|@\/demo|@\/remy\/adapters)/,
     );
   });
 
   it("keeps the headless WebMCP adapter independent of React and the demo", () => {
     const source = readFileSync(
-      join(root, "src", "remy", "adapters", "webmcp.ts"),
+      join(root, "packages", "webmcp", "src", "index.ts"),
       "utf8",
     );
-    expect(source).not.toMatch(/(?:react|@\/demo|DemoState)/);
-    expect(source).not.toMatch(/@\/remy\/core\//);
+    expect(source).not.toMatch(/(?:react|next|tailwind|@\/demo|DemoState)/);
+    expect(source).not.toMatch(/@\//);
   });
 
   it("keeps React primitives independent of Next, adapters, and the demo", () => {
     assertNoMatches(
-      join(root, "src", "remy", "react"),
-      /(?:from|import\()\s*["'](?:next|@\/demo|@\/remy\/adapters)/,
+      join(root, "packages", "react", "src"),
+      /(?:from|import\()\s*["'](?:next|tailwind|@\/demo|@\/remy\/adapters)/,
     );
   });
 
   it("keeps commerce concepts out of core", () => {
     assertNoMatches(
-      join(root, "src", "remy", "core"),
+      join(root, "packages", "core", "src"),
       /\b(?:morrow|cart|checkout|purchase|commerce)\b/i,
     );
   });

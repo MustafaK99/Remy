@@ -12,7 +12,7 @@ export function SiteHeader({ tone = "light" }: { tone?: HeaderTone }) {
       className={`relative z-50 border-b ${
         isDark
           ? "border-white/10 bg-[#0a0a0a] text-white"
-          : "border-[#19362e]/10 bg-[#f4efe5] text-[#19362e]"
+          : "border-[var(--line)] bg-[var(--paper)] text-[var(--ink)]"
       }`}
     >
       <div
@@ -21,29 +21,29 @@ export function SiteHeader({ tone = "light" }: { tone?: HeaderTone }) {
         <RemyMark tone={isDark ? "light" : "dark"} />
         <nav
           className={`hidden items-center gap-7 text-[13px] md:flex ${
-            isDark ? "text-white/45" : "text-[#676c64]"
+            isDark ? "text-white/45" : "text-[var(--muted)]"
           }`}
         >
           <Link
-            className={isDark ? "hover:text-white" : "hover:text-[#111510]"}
+            className={isDark ? "hover:text-white" : "hover:text-[var(--ink)]"}
             href="/#product"
           >
             Product
           </Link>
           <Link
-            className={isDark ? "hover:text-white" : "hover:text-[#111510]"}
+            className={isDark ? "hover:text-white" : "hover:text-[var(--ink)]"}
             href="/#how-it-works"
           >
             How it works
           </Link>
           <Link
-            className={isDark ? "hover:text-white" : "hover:text-[#111510]"}
+            className={isDark ? "hover:text-white" : "hover:text-[var(--ink)]"}
             href="/docs"
           >
             Docs
           </Link>
           <Link
-            className={isDark ? "hover:text-white" : "hover:text-[#111510]"}
+            className={isDark ? "hover:text-white" : "hover:text-[var(--ink)]"}
             href="/demo"
           >
             Demo
@@ -54,10 +54,10 @@ export function SiteHeader({ tone = "light" }: { tone?: HeaderTone }) {
           className={`group inline-flex h-9 items-center gap-2 border px-3.5 text-xs font-medium transition-colors ${
             isDark
               ? "border-white bg-white text-[#0a0a0a] hover:bg-white/85"
-              : "border-[#19362e] bg-[#19362e] text-white hover:bg-[#28483e]"
+              : "border-[var(--ink)] bg-[var(--ink)] text-white hover:bg-[var(--ink-soft)]"
           }`}
         >
-          Run locally
+          Read quickstart
           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>

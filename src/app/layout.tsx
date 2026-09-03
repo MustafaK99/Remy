@@ -8,17 +8,17 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: {
-    default: "Remy — control, receipts, and recovery for agent actions",
+    default: "Remy — permissions, approvals, receipts and recovery",
     template: "%s · Remy",
   },
   description:
-    "Ship agents users are not afraid to trust with previews, approvals, readable receipts, and honest recovery for real actions.",
+    "An open-source TypeScript SDK that lets reversible agent actions run and pauses consequential actions for approval.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0a0a0a",
+  themeColor: "#f5f0e7",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-[#0a0a0a] font-sans">{children}</body>
+      <body className="min-h-full bg-[var(--paper)] font-sans">{children}</body>
     </html>
   );
 }

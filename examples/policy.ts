@@ -1,4 +1,4 @@
-import type { Policy } from "../src/remy/core";
+import type { Policy } from "@remy-ai/core";
 
 export const documentPolicy: Policy = ({ action, controls }) => {
   if (controls.paused) {

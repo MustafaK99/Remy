@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRemy, fail, succeed } from "../src/remy/core";
+import { createRemy, fail, succeed } from "@remy-ai/core";
 
 type Services = {
   readonly bookReview: (reviewerId: string) => Promise<{ readonly id: string }>;
