@@ -3,8 +3,11 @@ import type {
   ActionEvent,
   ActionReceipt,
   ActionRecord,
+  AgentIdentity,
   AnyActionDefinition,
   AutonomyLevel,
+  ControlRequest,
+  ControlSettings,
   EngineSnapshot,
   EngineStateAdapter,
   PersistedEngineSnapshot,
@@ -16,6 +19,7 @@ type EngineOptions<State> = {
   taskId?: string;
   runId?: string;
   autonomy?: AutonomyLevel;
+  allowPurchases?: boolean;
   onPersist?: (snapshot: PersistedEngineSnapshot<State>) => void;
 };
 
@@ -47,9 +51,13 @@ export class RemyEngine<State> {
   private events: ActionEvent[] = [];
   private autonomy: AutonomyLevel;
   private paused = false;
+  private allowPurchases: boolean;
+  private activeAgent?: AgentIdentity;
+  private pendingControlRequest?: ControlRequest;
   private listeners = new Set<Listener>();
   private actionCounter = 0;
   private eventCounter = 0;
+  private controlRequestCounter = 0;
   private readonly idempotency = new Map<string, string>();
   private readonly taskId: string;
   private readonly runId: string;
@@ -62,6 +70,7 @@ export class RemyEngine<State> {
     options: EngineOptions<State> = {},
   ) {
     this.autonomy = options.autonomy ?? "reversible";
+    this.allowPurchases = options.allowPurchases ?? false;
     this.taskId = options.taskId ?? "return-order-1842";
     this.runId = options.runId ?? "remy-demo-run";
     this.onPersist = options.onPersist;
@@ -92,6 +101,9 @@ export class RemyEngine<State> {
     events: [...this.events],
     autonomy: this.autonomy,
     paused: this.paused,
+    allowPurchases: this.allowPurchases,
+    activeAgent: this.activeAgent,
+    pendingControlRequest: this.pendingControlRequest,
   });
 
   getServerSnapshot = this.getSnapshot;
@@ -102,6 +114,7 @@ export class RemyEngine<State> {
     events: [...this.events],
     autonomy: this.autonomy,
     paused: this.paused,
+    allowPurchases: this.allowPurchases,
   });
 
   restore(snapshot: PersistedEngineSnapshot<State>) {
@@ -110,6 +123,7 @@ export class RemyEngine<State> {
     this.events = snapshot.events ?? [];
     this.autonomy = snapshot.autonomy ?? "reversible";
     this.paused = snapshot.paused ?? false;
+    this.allowPurchases = snapshot.allowPurchases ?? false;
     this.actionCounter = this.records.length;
     this.eventCounter = this.events.length;
     this.records.forEach((record) =>
@@ -128,6 +142,49 @@ export class RemyEngine<State> {
     this.emit();
   }
 
+  setAllowPurchases(allowPurchases: boolean) {
+    this.allowPurchases = allowPurchases;
+    this.emit();
+  }
+
+  setControls(controls: ControlSettings) {
+    this.autonomy = controls.autonomy;
+    this.paused = controls.paused;
+    this.allowPurchases = controls.allowPurchases;
+    this.pendingControlRequest = undefined;
+    this.emit();
+  }
+
+  identifyAgent(identity: Omit<AgentIdentity, "selfReported">) {
+    this.activeAgent = { ...identity, selfReported: true };
+    this.emit(false);
+  }
+
+  requestControlChange(controls: ControlSettings) {
+    this.controlRequestCounter += 1;
+    this.pendingControlRequest = {
+      id: `control-${String(this.controlRequestCounter).padStart(3, "0")}`,
+      controls,
+      requestedAt: now(),
+      requestedBy: this.activeAgent,
+    };
+    this.emit(false);
+    return this.pendingControlRequest;
+  }
+
+  approveControlChange(requestId: string) {
+    if (this.pendingControlRequest?.id !== requestId) return false;
+    this.setControls(this.pendingControlRequest.controls);
+    return true;
+  }
+
+  rejectControlChange(requestId: string) {
+    if (this.pendingControlRequest?.id !== requestId) return false;
+    this.pendingControlRequest = undefined;
+    this.emit(false);
+    return true;
+  }
+
   reset() {
     this.records = [];
     this.events = [];
@@ -136,6 +193,10 @@ export class RemyEngine<State> {
     this.eventCounter = 0;
     this.autonomy = "reversible";
     this.paused = false;
+    this.allowPurchases = false;
+    this.activeAgent = undefined;
+    this.pendingControlRequest = undefined;
+    this.controlRequestCounter = 0;
     this.stateAdapter.reset();
     this.emit();
   }
@@ -190,6 +251,10 @@ export class RemyEngine<State> {
         actionName,
         title: action.title,
         actor: meta.actor ?? "agent",
+        agent:
+          (meta.actor ?? "agent") === "agent"
+            ? (meta.agent ?? this.activeAgent)
+            : undefined,
         transport: meta.transport ?? "manual",
         input: rawInput,
         inputSummary: "Input validation failed",
@@ -246,11 +311,18 @@ export class RemyEngine<State> {
       };
     }
 
-    const decision = decidePolicy(
-      action,
-      this.autonomy,
-      this.paused,
-    );
+    const decision =
+      actor === "user"
+        ? ({
+            outcome: "allow",
+            reason: "The customer requested this directly in the website UI.",
+          } as const)
+        : decidePolicy(
+            action,
+            this.autonomy,
+            this.paused,
+            this.allowPurchases,
+          );
     const actionId = this.nextActionId();
     const proposedAt = now();
     const record: ActionRecord = {
@@ -261,6 +333,7 @@ export class RemyEngine<State> {
       actionName,
       title: action.title,
       actor,
+      agent: actor === "agent" ? (meta.agent ?? this.activeAgent) : undefined,
       transport,
       input: parsed.data,
       inputSummary:
@@ -343,6 +416,29 @@ export class RemyEngine<State> {
         error: "The action definition is no longer registered.",
       };
     }
+    const changedResource = receipt.resourceKeys.find(
+      (key) => this.stateAdapter.getVersion(key) !== receipt.beforeVersions[key],
+    );
+    if (changedResource) {
+      const message =
+        "This approval is out of date because the page changed. Ask the assistant to prepare it again.";
+      this.appendEvent(
+        actionId,
+        "failed",
+        "system",
+        { resourceKey: changedResource },
+        "STALE_APPROVAL",
+        message,
+      );
+      this.emit();
+      return {
+        ok: false,
+        actionId,
+        status: "failed",
+        code: "STALE_APPROVAL",
+        error: message,
+      };
+    }
     return this.executeRecord(receipt, action, receipt.input, "user");
   }
 
@@ -366,7 +462,7 @@ export class RemyEngine<State> {
     };
   }
 
-  async revert(actionId: string): Promise<RunResult> {
+  async revert(actionId: string, meta: RunMeta = {}): Promise<RunResult> {
     const receipt = this.getReceipt(actionId);
     if (!receipt || receipt.status !== "committed") {
       return {
@@ -382,6 +478,26 @@ export class RemyEngine<State> {
         actionId,
         code: "IRREVERSIBLE",
         error: "This action cannot be undone.",
+      };
+    }
+    const actor = meta.actor ?? "user";
+    if (actor === "agent" && this.paused) {
+      return {
+        ok: false,
+        actionId,
+        code: "POLICY_DENIED",
+        error: "AI changes are off.",
+      };
+    }
+    if (
+      actor === "agent" &&
+      (this.autonomy === "ask" || this.autonomy === "preview")
+    ) {
+      return {
+        ok: false,
+        actionId,
+        code: "APPROVAL_REQUIRED",
+        error: "This setting requires the user to reverse the change in Remy.",
       };
     }
     const conflict = receipt.resourceKeys.find(
@@ -423,8 +539,9 @@ export class RemyEngine<State> {
         ? `compensate_${receipt.actionName}`
         : `revert_${receipt.actionName}`,
       title: reversalTitle,
-      actor: "user",
-      transport: "internal",
+      actor,
+      agent: actor === "agent" ? (meta.agent ?? this.activeAgent) : undefined,
+      transport: meta.transport ?? "internal",
       input: { receiptId: receipt.id },
       inputSummary: `${isCompensation ? "Compensate" : "Undo"} ${receipt.title}`,
       preview: {
@@ -442,7 +559,10 @@ export class RemyEngine<State> {
       output: undefined,
       policyDecision: {
         outcome: "allow",
-        reason: "The user explicitly requested this reversal.",
+        reason:
+          actor === "user"
+            ? "The user explicitly requested this reversal."
+            : "The current Remy setting allows this reversible AI change.",
       },
       beforeVersions: Object.fromEntries(
         receipt.resourceKeys.map((key) => [key, this.stateAdapter.getVersion(key)]),
@@ -455,9 +575,9 @@ export class RemyEngine<State> {
 
     this.records.push(reversalRecord);
     this.idempotency.set(reversalRecord.idempotencyKey, reversalId);
-    this.appendEvent(receipt.id, "revert_requested", "user");
-    this.appendEvent(reversalId, "proposed", "user");
-    this.appendEvent(reversalId, "reverting", "user");
+    this.appendEvent(receipt.id, "revert_requested", actor);
+    this.appendEvent(reversalId, "proposed", actor);
+    this.appendEvent(reversalId, "reverting", actor);
     this.emit();
 
     try {
@@ -466,8 +586,8 @@ export class RemyEngine<State> {
         throw new Error("This action does not provide a reversal handler.");
       }
       const output = await handler(receipt, this.stateAdapter, {
-        actor: "user",
-        transport: "internal",
+        actor,
+        transport: meta.transport ?? "internal",
         actionId: reversalId,
         idempotencyKey: reversalRecord.idempotencyKey,
       });
@@ -476,7 +596,7 @@ export class RemyEngine<State> {
         receipt.resourceKeys.map((key) => [key, this.stateAdapter.bumpVersion(key)]),
       );
       const originalStatus = isCompensation ? "compensated" : "reverted";
-      this.appendEvent(reversalId, "committed", "user");
+      this.appendEvent(reversalId, "committed", actor);
       this.appendEvent(receipt.id, originalStatus, "system", {
         reversedByReceiptId: reversalId,
       });

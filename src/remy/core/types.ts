@@ -6,6 +6,26 @@ export type AutonomyLevel = "preview" | "ask" | "reversible" | "trusted";
 export type Actor = "agent" | "user" | "system";
 export type Transport = "webmcp" | "manual" | "internal";
 
+export type AgentIdentity = {
+  id: string;
+  name: string;
+  provider?: string;
+  selfReported: true;
+};
+
+export type ControlSettings = {
+  autonomy: AutonomyLevel;
+  paused: boolean;
+  allowPurchases: boolean;
+};
+
+export type ControlRequest = {
+  id: string;
+  controls: ControlSettings;
+  requestedAt: string;
+  requestedBy?: AgentIdentity;
+};
+
 export type ActionStatus =
   | "proposed"
   | "staged"
@@ -53,6 +73,7 @@ export type ActionRecord = {
   actionName: string;
   title: string;
   actor: Actor;
+  agent?: AgentIdentity;
   transport: Transport;
   input: unknown;
   inputSummary: string;
@@ -109,6 +130,7 @@ export type ActionDefinition<State, Input = unknown, Output = unknown> = {
   risk: Risk;
   reversibility: Reversibility;
   alwaysRequireApproval?: boolean;
+  requiresPurchasePermission?: boolean;
   safeToCompensateAutomatically?: boolean;
   preview: (
     input: Input,
@@ -149,6 +171,7 @@ export type ExecutionMeta = {
 
 export type RunMeta = {
   actor?: Actor;
+  agent?: AgentIdentity;
   transport?: Transport;
   idempotencyKey?: string;
 };
@@ -176,6 +199,9 @@ export type EngineSnapshot<State> = {
   events: ActionEvent[];
   autonomy: AutonomyLevel;
   paused: boolean;
+  allowPurchases: boolean;
+  activeAgent?: AgentIdentity;
+  pendingControlRequest?: ControlRequest;
 };
 
 export type PersistedEngineSnapshot<State> = {
@@ -184,5 +210,5 @@ export type PersistedEngineSnapshot<State> = {
   events: ActionEvent[];
   autonomy: AutonomyLevel;
   paused: boolean;
+  allowPurchases?: boolean;
 };
-

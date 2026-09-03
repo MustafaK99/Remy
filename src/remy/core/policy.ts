@@ -8,6 +8,7 @@ export function decidePolicy<State>(
   action: ActionDefinition<State, unknown>,
   autonomy: AutonomyLevel,
   paused: boolean,
+  allowPurchases = false,
 ): PolicyDecision {
   if (action.kind === "read") {
     return { outcome: "allow", reason: "Read-only actions are safe to run." };
@@ -24,6 +25,13 @@ export function decidePolicy<State>(
     return {
       outcome: "require_approval",
       reason: "The developer requires approval for this action every time.",
+    };
+  }
+
+  if (action.requiresPurchasePermission && !allowPurchases) {
+    return {
+      outcome: "require_approval",
+      reason: "Purchases must be approved by the user in the current settings.",
     };
   }
 
@@ -71,4 +79,3 @@ export function decidePolicy<State>(
     reason: "Trusted run permits this developer-defined action.",
   };
 }
-

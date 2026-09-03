@@ -2,354 +2,467 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
   Check,
-  ChevronRight,
-  CircleDashed,
-  PackageCheck,
+  ChevronDown,
+  Minus,
+  Plus,
   Search,
   ShoppingBag,
-  Sparkles,
+  Star,
   UserRound,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { HERO_PROMPT } from "@/demo/data";
+import {
+  getCartTotal,
+  getDeliveryCost,
+  getDiscount,
+  getSubtotal,
+  type ProductColour,
+} from "@/demo/data";
 import { useWebMCPRegistration } from "@/remy/adapters/webmcp";
 import { RemyProvider, useRemy } from "@/remy/react/provider";
 import { ActionCenter } from "./action-center";
 
+const money = new Intl.NumberFormat("en-GB", {
+  style: "currency",
+  currency: "GBP",
+  minimumFractionDigits: 0,
+});
+
 function DemoWorkspace() {
-  const { engine, snapshot, runStatus, runDemo, reset } = useRemy();
+  const { engine, snapshot, runUserAction, reset } = useRemy();
   const webmcpStatus = useWebMCPRegistration(engine);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const demo = snapshot.state;
-  const webmcpReady = webmcpStatus === "ready";
-  const requestSent = runStatus !== "idle" || snapshot.receipts.length > 0;
-  const refundComplete = demo.return.refund.status === "issued";
-  const refundWaiting = snapshot.receipts.some(
-    (receipt) =>
-      receipt.actionName === "issue_refund" &&
-      ["awaiting_approval", "staged"].includes(receipt.status),
-  );
+  const [selectedColour, setSelectedColour] =
+    useState<ProductColour>("Charcoal");
+  const [discountCode, setDiscountCode] = useState("");
+  const state = snapshot.state;
+  const line = state.cart.line;
+  const total = getCartTotal(state);
 
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [drawerOpen]);
+  const addToBag = () =>
+    runUserAction("add_to_cart", {
+      productId: "morrow-one",
+      colour: selectedColour,
+      quantity: line?.quantity ?? 1,
+    });
 
-  const startReturn = async () => {
-    setDrawerOpen(true);
-    await runDemo();
-  };
+  const setQuantity = (quantity: number) =>
+    runUserAction("set_quantity", {
+      productId: "morrow-one",
+      quantity,
+    });
 
-  const restartDemo = () => {
-    reset();
-    setDrawerOpen(false);
+  const applyDiscount = () => {
+    const normalized = discountCode.trim().toUpperCase();
+    if (normalized !== "HELLO10") return;
+    void runUserAction("apply_discount", { code: "HELLO10" });
+    setDiscountCode("");
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f0e4] text-[#18201c]">
-      <div className="bg-[#17342b] px-4 py-2 text-center font-mono text-[9px] uppercase tracking-[0.12em] text-white/70">
-        Free delivery on orders over £50 · 30-day returns
-      </div>
-
-      <header className="border-b border-[#17342b]/16 bg-[#fffaf0]">
-        <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-9">
-            <Link
-              href="#"
-              className="text-2xl font-black tracking-[-0.065em] text-[#17342b]"
-            >
-              morrow<span className="text-[#ef6f50]">.</span>
-            </Link>
-            <nav className="hidden items-center gap-7 text-sm font-semibold text-[#4e5d55] md:flex">
-              <Link href="#products" className="hover:text-[#17342b]">
-                Headphones
-              </Link>
-              <Link href="#products" className="hover:text-[#17342b]">
-                Accessories
-              </Link>
-              <Link href="#support" className="hover:text-[#17342b]">
-                Support
-              </Link>
-            </nav>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              aria-label="Search"
-              className="grid size-10 place-items-center hover:bg-[#e9e4d8]"
-            >
-              <Search className="size-[18px]" />
-            </button>
-            <button
-              type="button"
-              aria-label="Your account"
-              className="hidden size-10 place-items-center hover:bg-[#e9e4d8] sm:grid"
-            >
-              <UserRound className="size-[18px]" />
-            </button>
-            <button
-              type="button"
-              aria-label="Shopping bag, 0 items"
-              className="relative grid size-10 place-items-center hover:bg-[#e9e4d8]"
-            >
-              <ShoppingBag className="size-[18px]" />
-              <span className="absolute right-0 top-0 grid size-4 place-items-center bg-[#f4c95d] font-mono text-[8px] font-bold">
-                0
+    <div className="min-h-screen bg-[#f4efe5] text-[#19362e]">
+      <div
+        className={`min-h-screen transition-[padding] duration-500 ease-[cubic-bezier(.22,1,.36,1)] ${
+          drawerOpen ? "lg:pr-[420px]" : ""
+        }`}
+      >
+        <div className="border-b border-white/10 bg-[#0a0a0a] text-white">
+          <div className="mx-auto flex max-w-[1280px] flex-col gap-3 px-5 py-3 sm:px-8 md:flex-row md:items-center md:justify-between">
+            <p className="text-xs leading-5 text-white/55">
+              <span className="mr-3 font-mono text-[9px] font-medium uppercase tracking-[0.1em] text-[#e66749]">
+                Live WebMCP demo
               </span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="border-b border-[#17342b]/18 bg-[#f4c95d] text-[#17342b]">
-        <div className="mx-auto flex min-h-10 max-w-[1240px] items-center justify-between gap-4 px-4 py-2 sm:px-6 lg:px-8">
-          <p className="flex items-center gap-2 text-xs font-bold">
-            <Sparkles className="size-3.5" />
-            WebMCP demo: a browser assistant is using this shop
-          </p>
-          <div className="flex shrink-0 items-center gap-4">
-            {requestSent ? (
+              An assistant uses the shop. Remy decides what runs and records the result.
+            </p>
+            <div className="flex shrink-0 items-center gap-4 text-[11px] font-medium">
               <button
                 type="button"
-                onClick={restartDemo}
-                className="font-mono text-[9px] font-bold uppercase tracking-[0.08em] underline underline-offset-4"
+                onClick={() => setDrawerOpen(true)}
+                className="text-white/82 transition-colors hover:text-white"
               >
-                Start over
+                Open Remy
               </button>
-            ) : null}
-            <Link
-              href="/"
-              className="hidden items-center gap-1 font-mono text-[9px] font-bold uppercase tracking-[0.08em] sm:inline-flex"
-            >
-              <ArrowLeft className="size-3" /> Remy site
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <main className="mx-auto max-w-[1240px] px-4 pb-24 pt-7 sm:px-6 sm:pt-10 lg:px-8">
-        <nav className="flex items-center gap-2 text-xs text-[#7a827d]">
-          <Link href="#" className="hover:text-[#17342b]">
-            Your account
-          </Link>
-          <ChevronRight className="size-3" />
-          <Link href="#" className="hover:text-[#17342b]">
-            Orders
-          </Link>
-          <ChevronRight className="size-3" />
-          <span className="font-semibold text-[#17342b]">#1842</span>
-        </nav>
-
-        <div className="mt-6 flex flex-col justify-between gap-4 border-b border-[#17342b]/16 pb-7 sm:flex-row sm:items-end">
-          <div>
-            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#78827d]">
-              Delivered 28 August
-            </p>
-            <h1 className="mt-2 text-4xl font-black tracking-[-0.06em] sm:text-6xl">
-              Order #1842
-            </h1>
-          </div>
-          <span className="w-fit border border-[#237158]/35 bg-[#dceadf] px-3 py-2 text-xs font-bold text-[#17634b]">
-            Return available until 27 September
-          </span>
-        </div>
-
-        <section className="mt-6 grid border-2 border-[#17342b] bg-[#e3eadf] lg:grid-cols-[180px_1fr_auto]">
-          <div className="flex items-center gap-3 border-b border-[#17342b] bg-[#17342b] px-4 py-4 text-white lg:border-b-0 lg:border-r">
-            <span className="grid size-9 place-items-center bg-[#ff805f] text-[#17342b]">
-              <Sparkles className="size-4" />
-            </span>
-            <div>
-              <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-white/55">
-                Browser
-              </p>
-              <p className="text-sm font-bold">AI assistant</p>
+              <Link href="/" className="text-white/42 transition-colors hover:text-white/80">
+                How it works
+              </Link>
             </div>
           </div>
-          <div className="px-4 py-4 sm:px-5">
-            <p className="text-sm font-semibold leading-6 sm:text-base">
-              “{HERO_PROMPT}”
-            </p>
-            <p className="mt-2 text-xs leading-5 text-[#5e6c65]">
-              {webmcpReady
-                ? "Your browser is connected. This request will use the shop’s WebMCP actions."
-                : "Guided demo: this button drives the same WebMCP actions a browser assistant would call."}
-            </p>
-          </div>
-          <div className="flex items-center border-t border-[#17342b]/20 p-3 lg:border-l lg:border-t-0">
-            <button
-              type="button"
-              onClick={() => void startReturn()}
-              disabled={requestSent}
-              data-testid="run-demo"
-              className="group inline-flex min-h-12 w-full items-center justify-center gap-2 bg-[#ef6f50] px-5 text-sm font-black text-[#17221d] transition-transform hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-default disabled:bg-[#cad6ca] disabled:text-[#58645e] lg:w-auto"
-            >
-              {runStatus === "running" ? (
-                <CircleDashed className="size-4 animate-spin" />
-              ) : requestSent ? (
-                <Check className="size-4" strokeWidth={3} />
-              ) : (
-                <Sparkles className="size-4" />
-              )}
-              {runStatus === "running"
-                ? "Sending request"
-                : requestSent
-                  ? "Request sent"
-                  : "Send with WebMCP"}
-              {!requestSent ? (
-                <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-              ) : null}
-            </button>
-          </div>
-        </section>
+        </div>
+        <div className="bg-[#19362e] px-4 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-[#fffaf0]/75">
+          Free delivery over £50 · 30-day returns
+        </div>
 
-        <div id="products" className="mt-10 grid gap-10 lg:grid-cols-[1.25fr_0.75fr]">
-          <section>
-            <div className="relative aspect-[16/10] overflow-hidden bg-[#d9dfd1]">
-              <Image
-                src="/images/morrow-headphones-kit.png"
-                alt="Charcoal studio headphones and their canvas travel case"
-                fill
-                loading="eager"
-                sizes="(min-width: 1024px) 720px, 100vw"
-                className="object-cover"
-              />
-              <span className="absolute bottom-4 left-4 bg-[#fffaf0] px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.1em] text-[#17342b]">
-                Morrow listening set
-              </span>
+        <header className="border-b border-[#19362e]/12 bg-[#fffaf2]">
+          <div className="mx-auto flex h-[74px] max-w-[1280px] items-center justify-between px-5 sm:px-8">
+            <div className="flex items-center gap-10">
+              <Link
+                href="#"
+                className="text-[26px] font-black tracking-[-0.07em]"
+                aria-label="Morrow home"
+              >
+                morrow<span className="text-[#ef704f]">.</span>
+              </Link>
+              <nav className="hidden items-center gap-8 text-sm font-semibold text-[#53675f] md:flex">
+                <Link href="#product" className="text-[#19362e]">
+                  Headphones
+                </Link>
+                <Link href="#details" className="hover:text-[#19362e]">
+                  About
+                </Link>
+                <Link href="#support" className="hover:text-[#19362e]">
+                  Support
+                </Link>
+              </nav>
             </div>
-
-            <div className="border-x border-b border-[#17342b]/16 bg-[#fffaf0]">
-              {demo.order.items.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="grid grid-cols-[76px_1fr_auto] items-center gap-4 border-b border-[#17342b]/12 p-4 last:border-b-0 sm:grid-cols-[92px_1fr_auto] sm:p-5"
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Search"
+                className="grid size-10 place-items-center rounded-full transition-colors hover:bg-[#eee8dc]"
+              >
+                <Search className="size-[18px]" />
+              </button>
+              <button
+                type="button"
+                aria-label="Your account"
+                className="hidden size-10 place-items-center rounded-full transition-colors hover:bg-[#eee8dc] sm:grid"
+              >
+                <UserRound className="size-[18px]" />
+              </button>
+              <a
+                href="#bag"
+                aria-label={`Shopping bag, ${line?.quantity ?? 0} items`}
+                className="relative grid size-10 place-items-center rounded-full transition-colors hover:bg-[#eee8dc]"
+              >
+                <ShoppingBag className="size-[18px]" />
+                <motion.span
+                  key={line?.quantity ?? 0}
+                  initial={{ scale: 0.7 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -right-0.5 -top-0.5 grid size-[18px] place-items-center rounded-full bg-[#f4c95d] font-mono text-[9px] font-bold"
                 >
-                  <div className="relative aspect-square overflow-hidden bg-[#e1e5dc]">
-                    <Image
-                      src="/images/morrow-headphones-kit.png"
-                      alt=""
-                      fill
-                      loading="eager"
-                      sizes="92px"
-                      className="scale-[1.55] object-cover"
-                      style={{ objectPosition: index === 0 ? "30% 68%" : "69% 59%" }}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-bold sm:text-lg">{item.name}</p>
-                    <p className="mt-1 text-xs text-[#7a827d]">
-                      Charcoal · Quantity 1
-                    </p>
-                  </div>
-                  <p className="font-bold">£{item.price}.00</p>
-                </div>
-              ))}
+                  {line?.quantity ?? 0}
+                </motion.span>
+              </a>
             </div>
-          </section>
+          </div>
+        </header>
 
-          <aside>
-            <section className="border-2 border-[#17342b] bg-[#fffaf0]">
-              <div className="border-b border-[#17342b]/16 px-5 py-5 sm:px-6">
-                <div className="flex items-center justify-between gap-4">
+        <main id="product" className="mx-auto max-w-[1280px] px-5 pb-20 pt-6 sm:px-8 sm:pt-10">
+          <div className="mb-6 text-xs text-[#75837d]">
+            <p>Home / Headphones / Morrow One</p>
+          </div>
+
+          <div className="grid gap-9 lg:grid-cols-[minmax(0,1.18fr)_minmax(330px,.82fr)] lg:gap-12">
+            <section className="relative overflow-hidden rounded-[28px] bg-[#d9dfd1] lg:sticky lg:top-6 lg:self-start">
+              <div className="relative aspect-[4/3] lg:aspect-[4/4.15]">
+                <Image
+                  src="/images/morrow-headphones-kit.png"
+                  alt="Morrow One charcoal headphones beside their canvas travel case"
+                  fill
+                  loading="eager"
+                  sizes="(min-width: 1280px) 650px, (min-width: 1024px) 55vw, 100vw"
+                  className="object-cover"
+                />
+                <div className="absolute left-5 top-5 rounded-full bg-[#fffaf2]/92 px-3 py-2 font-mono text-[9px] font-bold uppercase tracking-[0.12em] backdrop-blur-sm">
+                  New · Morrow One
+                </div>
+              </div>
+            </section>
+
+            <div className="min-w-0">
+              <section>
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#53675f]">
+                  <span className="flex text-[#e66b49]" aria-hidden="true">
+                    {[0, 1, 2, 3, 4].map((star) => (
+                      <Star key={star} className="size-3.5 fill-current" />
+                    ))}
+                  </span>
+                  <span>4.9 · 216 reviews</span>
+                </div>
+                <p className="mt-5 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-[#718078]">
+                  Wireless headphones
+                </p>
+                <h1 className="mt-3 text-5xl font-black leading-none tracking-[-0.06em] sm:text-6xl">
+                  Morrow One
+                </h1>
+                <p className="mt-5 text-2xl font-bold tracking-[-0.035em]">
+                  {money.format(state.product.price)}
+                </p>
+                <p className="mt-4 max-w-[540px] text-base leading-7 text-[#596b64]">
+                  {state.product.description}
+                </p>
+
+                <fieldset className="mt-8">
+                  <legend className="text-sm font-bold">Colour</legend>
+                  <div className="mt-3 flex gap-3">
+                    {(["Charcoal", "Oat"] as ProductColour[]).map((colour) => (
+                      <button
+                        key={colour}
+                        type="button"
+                        onClick={() => setSelectedColour(colour)}
+                        aria-pressed={selectedColour === colour}
+                        className={`flex min-h-12 items-center gap-2.5 rounded-full border px-4 text-sm font-semibold transition-colors ${
+                          selectedColour === colour
+                            ? "border-[#19362e] bg-[#19362e] text-white"
+                            : "border-[#19362e]/18 bg-[#fffaf2] hover:border-[#19362e]/45"
+                        }`}
+                      >
+                        <span
+                          className={`size-4 rounded-full border ${
+                            colour === "Charcoal"
+                              ? "border-white/30 bg-[#2e3431]"
+                              : "border-[#19362e]/12 bg-[#d9cdb8]"
+                          }`}
+                        />
+                        {colour}
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+
+                <button
+                  type="button"
+                  onClick={() => void addToBag()}
+                  className="mt-7 flex min-h-14 w-full items-center justify-center gap-3 rounded-full bg-[#19362e] px-6 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+                >
+                  {line ? "Update bag" : "Add to bag"}
+                  <span className="text-white/45">·</span>
+                  {money.format(state.product.price * (line?.quantity ?? 1))}
+                </button>
+
+                <div id="details" className="mt-8 divide-y divide-[#19362e]/12 border-y border-[#19362e]/12">
+                  {["What’s included", "Delivery & returns", "Product details"].map(
+                    (label) => (
+                      <button
+                        key={label}
+                        type="button"
+                        className="flex min-h-14 w-full items-center justify-between text-left text-sm font-semibold"
+                      >
+                        {label}
+                        <ChevronDown className="size-4 text-[#7b8983]" />
+                      </button>
+                    ),
+                  )}
+                </div>
+              </section>
+
+              <motion.section
+                id="bag"
+                layout
+                className="mt-12 rounded-[24px] bg-[#fffaf2] p-5 ring-1 ring-[#19362e]/12 sm:p-6"
+              >
+                <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-[#7b847e]">
-                      Return status
+                    <p className="font-mono text-[9px] font-bold uppercase tracking-[0.12em] text-[#73817b]">
+                      Your bag
                     </p>
                     <h2 className="mt-2 text-2xl font-black tracking-[-0.045em]">
-                      {refundComplete
-                        ? "Return complete"
-                        : demo.return.status === "not_started"
-                          ? "Nothing returned yet"
-                          : "Return in progress"}
+                      {state.order.status === "placed"
+                        ? "Order confirmed"
+                        : line
+                          ? "Ready when you are"
+                          : "Your bag is empty"}
                     </h2>
                   </div>
-                  <span
-                    className={`grid size-11 shrink-0 place-items-center ${
-                      refundComplete
-                        ? "bg-[#f4c95d]"
-                        : demo.return.status === "not_started"
-                          ? "bg-[#e6e1d7] text-[#8b918d]"
-                          : "bg-[#d3eadc] text-[#17634b]"
-                    }`}
-                  >
-                    <PackageCheck className="size-5" />
-                  </span>
+                  {line ? (
+                    <span className="rounded-full bg-[#f4c95d] px-3 py-1.5 text-xs font-bold">
+                      {line.quantity} {line.quantity === 1 ? "item" : "items"}
+                    </span>
+                  ) : null}
                 </div>
-              </div>
 
-              <div className="px-5 py-2 sm:px-6">
-                <OrderState
-                  label="Items"
-                  value={
-                    demo.return.status === "not_started"
-                      ? "Not selected"
-                      : "Both items"
-                  }
-                  active={demo.return.status !== "not_started"}
-                />
-                <OrderState
-                  label="Reason"
-                  value={demo.return.reason ?? "Not added"}
-                  active={Boolean(demo.return.reason)}
-                />
-                <OrderState
-                  label="Collection"
-                  value={
-                    demo.return.collection.status === "booked"
-                      ? `Next Friday · ${demo.return.collectionAddress}`
-                      : demo.return.collection.status === "cancelled"
-                        ? "Cancelled"
-                        : "Not booked"
-                  }
-                  active={demo.return.collection.status === "booked"}
-                />
-                <OrderState
-                  label="Refund"
-                  value={
-                    refundComplete
-                      ? "£84 sent to Visa ending 4242"
-                      : refundWaiting
-                        ? "Waiting for your approval"
-                        : "Not started"
-                  }
-                  active={refundComplete}
-                  waiting={refundWaiting}
-                />
-              </div>
-            </section>
+                {state.order.status === "placed" ? (
+                  <div className="mt-6 rounded-[18px] bg-[#dcebdd] p-5">
+                    <span className="grid size-10 place-items-center rounded-full bg-[#28735b] text-white">
+                      <Check className="size-5" strokeWidth={3} />
+                    </span>
+                    <p className="mt-4 text-lg font-bold">Order {state.order.id}</p>
+                    <p className="mt-1 text-sm leading-6 text-[#52675e]">
+                      Confirmation sent. Your Morrow One is on its way.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={reset}
+                      className="mt-4 text-sm font-bold underline decoration-[#19362e]/30 underline-offset-4"
+                    >
+                      Continue shopping
+                    </button>
+                  </div>
+                ) : line ? (
+                  <>
+                    <div className="mt-6 flex gap-4 border-b border-[#19362e]/12 pb-5">
+                      <div className="relative size-20 shrink-0 overflow-hidden rounded-[14px] bg-[#d9dfd1]">
+                        <Image
+                          src="/images/morrow-headphones-kit.png"
+                          alt=""
+                          fill
+                          sizes="80px"
+                          className="scale-[1.45] object-cover object-[31%_68%]"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex justify-between gap-3">
+                          <div>
+                            <p className="font-bold">{line.name}</p>
+                            <p className="mt-1 text-xs text-[#728079]">{line.colour}</p>
+                          </div>
+                          <p className="font-bold">
+                            {money.format(line.price * line.quantity)}
+                          </p>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between">
+                          <div className="flex h-9 items-center rounded-full border border-[#19362e]/18">
+                            <button
+                              type="button"
+                              aria-label="Decrease quantity"
+                              disabled={line.quantity <= 1}
+                              onClick={() => void setQuantity(line.quantity - 1)}
+                              className="grid size-9 place-items-center disabled:opacity-30"
+                            >
+                              <Minus className="size-3.5" />
+                            </button>
+                            <span className="w-6 text-center text-xs font-bold">
+                              {line.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="Increase quantity"
+                              disabled={line.quantity >= 3}
+                              onClick={() => void setQuantity(line.quantity + 1)}
+                              className="grid size-9 place-items-center disabled:opacity-30"
+                            >
+                              <Plus className="size-3.5" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void runUserAction("remove_from_cart", {
+                                productId: "morrow-one",
+                              })
+                            }
+                            className="text-xs font-semibold text-[#66766f] underline underline-offset-4"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
 
-            <section className="mt-5 border border-[#17342b]/16 bg-[#eee8dc] p-5 sm:p-6">
-              <h2 className="text-lg font-black tracking-[-0.035em]">
-                Payment summary
-              </h2>
-              <dl className="mt-5 space-y-3 text-sm">
-                <SummaryLine label="Items" value="£84.00" />
-                <SummaryLine label="Delivery" value="Free" />
-                <div className="border-t border-[#17342b]/14 pt-3">
-                  <SummaryLine label="Paid" value="£84.00" strong />
-                </div>
-              </dl>
-              <p className="mt-5 border-t border-[#17342b]/14 pt-4 text-xs leading-5 text-[#69746e]">
-                Visa ending 4242 · 14 High Street, London
-              </p>
-            </section>
-          </aside>
-        </div>
+                    <fieldset className="mt-5">
+                      <legend className="text-sm font-bold">Delivery</legend>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        {([
+                          ["standard", "Standard", "3–5 days", "Free"],
+                          ["express", "Express", "Tomorrow", "£8"],
+                        ] as const).map(([value, title, detail, price]) => (
+                          <button
+                            key={value}
+                            type="button"
+                            onClick={() =>
+                              void runUserAction("choose_delivery", { method: value })
+                            }
+                            aria-pressed={state.cart.delivery === value}
+                            className={`rounded-[16px] border p-3 text-left transition-colors ${
+                              state.cart.delivery === value
+                                ? "border-[#28735b] bg-[#e2eee4]"
+                                : "border-[#19362e]/12 hover:border-[#19362e]/35"
+                            }`}
+                          >
+                            <span className="flex items-center justify-between gap-3 text-sm font-bold">
+                              {title} <span>{price}</span>
+                            </span>
+                            <span className="mt-1 block text-xs text-[#718078]">
+                              {detail}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
 
-        <p className="mt-8 text-center font-mono text-[9px] uppercase tracking-[0.08em] text-[#858d88]">
-          Demo shop · no real order, collection, or payment is created
-        </p>
-      </main>
+                    <div className="mt-5 flex gap-2">
+                      <input
+                        value={discountCode}
+                        onChange={(event) => setDiscountCode(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") applyDiscount();
+                        }}
+                        placeholder="Discount code"
+                        aria-label="Discount code"
+                        className="min-h-11 min-w-0 flex-1 rounded-full border border-[#19362e]/16 bg-transparent px-4 text-sm uppercase outline-none placeholder:normal-case focus:border-[#19362e]/50"
+                      />
+                      <button
+                        type="button"
+                        onClick={applyDiscount}
+                        disabled={discountCode.trim().toUpperCase() !== "HELLO10"}
+                        className="min-h-11 rounded-full border border-[#19362e]/18 px-4 text-xs font-bold disabled:opacity-35"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                    {state.cart.discount ? (
+                      <p className="mt-2 text-xs font-semibold text-[#28735b]">
+                        HELLO10 applied · 10% off
+                      </p>
+                    ) : null}
+
+                    <dl className="mt-6 space-y-2 text-sm">
+                      <SummaryLine label="Subtotal" value={money.format(getSubtotal(state))} />
+                      <SummaryLine
+                        label="Delivery"
+                        value={
+                          getDeliveryCost(state)
+                            ? money.format(getDeliveryCost(state))
+                            : "Free"
+                        }
+                      />
+                      {getDiscount(state) ? (
+                        <SummaryLine
+                          label="Discount"
+                          value={`−${money.format(getDiscount(state))}`}
+                          accent
+                        />
+                      ) : null}
+                      <div className="border-t border-[#19362e]/12 pt-3">
+                        <SummaryLine label="Total" value={money.format(total)} strong />
+                      </div>
+                    </dl>
+
+                    <button
+                      type="button"
+                      onClick={() => void runUserAction("place_order", {})}
+                      className="mt-5 flex min-h-13 w-full items-center justify-center rounded-full bg-[#ef704f] px-5 text-sm font-black text-[#19362e] transition-transform hover:-translate-y-0.5"
+                    >
+                      Buy now · {money.format(total)}
+                    </button>
+                    <p className="mt-3 text-center text-[11px] leading-5 text-[#7a8781]">
+                      Paying with {state.customer.paymentMethod}
+                    </p>
+                  </>
+                ) : (
+                  <p className="mt-5 text-sm leading-6 text-[#65746d]">
+                    Pick a colour and add Morrow One to start your order.
+                  </p>
+                )}
+              </motion.section>
+            </div>
+          </div>
+
+          <section
+            id="support"
+            className="mt-20 border-t border-[#19362e]/12 pt-8 text-sm text-[#718078]"
+          >
+            <div className="flex flex-col justify-between gap-3 sm:flex-row">
+              <p>Morrow is a fictional shop built to demonstrate WebMCP actions.</p>
+              <p>No payment or order is created.</p>
+            </div>
+          </section>
+        </main>
+      </div>
 
       <ActionCenter
         connectionStatus={webmcpStatus}
@@ -360,56 +473,33 @@ function DemoWorkspace() {
   );
 }
 
-function OrderState({
-  label,
-  value,
-  active,
-  waiting = false,
-}: {
-  label: string;
-  value: string;
-  active: boolean;
-  waiting?: boolean;
-}) {
-  return (
-    <motion.div
-      layout
-      className="grid grid-cols-[18px_86px_1fr] gap-3 border-b border-[#17342b]/11 py-4 last:border-b-0"
-    >
-      <span
-        className={`mt-0.5 grid size-[18px] place-items-center ${
-          waiting
-            ? "bg-[#ff805f] text-[#17221d]"
-            : active
-              ? "bg-[#2b8a67] text-white"
-              : "border border-[#9ea6a1] text-transparent"
-        }`}
-      >
-        {waiting ? (
-          <CircleDashed className="size-2.5 animate-spin" />
-        ) : (
-          <Check className="size-2.5" strokeWidth={3} />
-        )}
-      </span>
-      <dt className="text-xs font-semibold text-[#78827d]">{label}</dt>
-      <dd className="text-right text-xs font-bold leading-5">{value}</dd>
-    </motion.div>
-  );
-}
-
 function SummaryLine({
   label,
   value,
   strong = false,
+  accent = false,
 }: {
   label: string;
   value: string;
   strong?: boolean;
+  accent?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <dt className={strong ? "font-black" : "text-[#69746e]"}>{label}</dt>
-      <dd className={strong ? "font-black" : "font-semibold"}>{value}</dd>
+      <dt className={strong ? "text-base font-black" : "text-[#687770]"}>
+        {label}
+      </dt>
+      <dd
+        className={
+          strong
+            ? "text-base font-black"
+            : accent
+              ? "font-bold text-[#28735b]"
+              : "font-semibold"
+        }
+      >
+        {value}
+      </dd>
     </div>
   );
 }

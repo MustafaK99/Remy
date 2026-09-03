@@ -48,10 +48,6 @@ const files = [
     path: join(sourceRoot, "remy", "provider.tsx"),
     content: providerTemplate(),
   },
-  {
-    path: join(appRoot, "remy", "page.tsx"),
-    content: actionCenterPageTemplate(),
-  },
 ];
 
 console.log("\n  remy  /  trustworthy agent actions\n");
@@ -86,9 +82,9 @@ console.log(`
   Next
   1. Define your business actions in ${relative(projectRoot, files[0].path).replaceAll("\\", "/")}
   2. Wrap your layout with RemyAppProvider
-  3. Open /remy to see the Action Center
+  3. Render Remy state wherever it makes sense in your existing UI (optional)
 
-  Done. Your actions, policy, receipts, and WebMCP tools now share one path.
+  Done. Your actions, policy, history, and WebMCP tools now share one path.
 `);
 
 function detectPackageManager(root) {
@@ -176,15 +172,6 @@ export function RemyAppProvider({ children }: { children: ReactNode }) {
       {children}
     </RemyProvider>
   );
-}
-`;
-}
-
-function actionCenterPageTemplate() {
-  return `import { ActionCenter } from "@remy-ai/react";
-
-export default function RemyActionCenterPage() {
-  return <ActionCenter />;
 }
 `;
 }

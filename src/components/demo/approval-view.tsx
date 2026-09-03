@@ -7,57 +7,69 @@ import { useRemy } from "@/remy/react/provider";
 
 export function ApprovalView({ receipt }: { receipt: ActionReceipt }) {
   const { approve, reject } = useRemy();
-  const isRefund = receipt.actionName === "issue_refund";
-  const title = isRefund ? "Refund £84 to this card?" : "Allow this change?";
-  const description = isRefund
-    ? "The assistant is ready to refund Visa ending 4242. Money cannot be pulled back, so Remy waited for you."
-    : `${receipt.preview.summary} Remy waited because this needs your say.`;
+  const isPurchase = receipt.actionName === "place_order";
+  const details = Object.entries(receipt.preview.detail ?? {});
+  const total = receipt.preview.detail?.Total;
 
   return (
     <motion.section
-      initial={{ y: "100%" }}
-      animate={{ y: 0 }}
-      exit={{ y: "100%" }}
-      transition={{ type: "spring", stiffness: 340, damping: 34 }}
-      className="absolute inset-x-0 bottom-0 z-30 border-t-2 border-[#172f28] bg-[#ff805f] p-5 text-[#17221d] sm:p-6"
-      role="dialog"
-      aria-modal="true"
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      className="border-b border-[#19362e]/12 bg-[#ef704f] px-5 py-5 text-[#19362e]"
       aria-labelledby="approval-title"
     >
       <div className="flex gap-3">
-        <span className="grid size-10 shrink-0 place-items-center border border-[#172f28]/35 bg-[#ffd9ca]">
-          <CircleAlert className="size-5" />
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[#19362e] text-white">
+          <CircleAlert className="size-4" />
         </span>
         <div>
-          <p className="font-mono text-[10px] font-bold uppercase tracking-[0.12em]">
-            Your decision
+          <p className="font-mono text-[9px] font-bold uppercase tracking-[0.11em]">
+            Needs your approval
           </p>
           <h3
             id="approval-title"
-            className="mt-2 text-2xl font-semibold leading-tight tracking-[-0.04em]"
+            className="mt-2 text-xl font-black leading-tight tracking-[-0.04em]"
           >
-            {title}
+            {isPurchase ? "Ready to buy?" : "Make this change?"}
           </h3>
-          <p className="mt-2 text-sm leading-6 text-[#563127]">{description}</p>
+          <p className="mt-2 text-xs leading-5 text-[#643426]">
+            {isPurchase
+              ? "AI prepared the order. Check it before your card is charged."
+              : receipt.preview.summary}
+          </p>
         </div>
       </div>
 
-      <div className="mt-5 grid gap-2 sm:grid-cols-[1fr_auto]">
+      {details.length > 0 ? (
+        <dl className="mt-4 divide-y divide-[#19362e]/14 border-y border-[#19362e]/14 text-xs">
+          {details
+            .filter(([label]) => label !== "Can this be undone?")
+            .map(([label, value]) => (
+              <div key={label} className="flex justify-between gap-4 py-2.5">
+                <dt className="text-[#6b392c]">{label}</dt>
+                <dd className="max-w-[62%] text-right font-bold">{value}</dd>
+              </div>
+            ))}
+        </dl>
+      ) : null}
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto]">
         <button
-          data-testid={isRefund ? "approve-refund" : "approve-change"}
+          data-testid={isPurchase ? "approve-purchase" : "approve-change"}
           type="button"
           onClick={() => void approve(receipt.id)}
-          className="group inline-flex min-h-12 items-center justify-center gap-2 bg-[#16362c] px-5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+          className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#19362e] px-5 text-xs font-bold text-white transition-transform hover:-translate-y-0.5"
         >
-          {isRefund ? "Yes, refund £84" : "Yes, allow it"}
-          <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+          {isPurchase ? `Buy now${total ? ` · ${total}` : ""}` : "Approve change"}
+          <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </button>
         <button
           type="button"
           onClick={() => reject(receipt.id)}
-          className="inline-flex min-h-12 items-center justify-center gap-2 border border-[#172f28]/35 px-5 text-sm font-bold transition-colors hover:bg-[#ffd9ca]"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-4 text-xs font-bold transition-colors hover:bg-[#f7a38b]"
         >
-          <X className="size-4" /> No, stop here
+          <X className="size-3.5" /> {isPurchase ? "Don’t buy" : "Don’t change it"}
         </button>
       </div>
     </motion.section>

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { DemoLoader } from "@/components/demo/demo-loader";
 
 export const metadata: Metadata = {
-  title: "WebMCP return demo",
+  title: "Live WebMCP demo",
   description:
-    "Watch a browser assistant return an ecommerce order through WebMCP while Remy shows each change and asks before refunding money.",
+    "See Remy apply autonomy, record changes, support recovery, and pause consequential WebMCP actions inside a fictional shop.",
 };
 
 export default function DemoPage() {

@@ -1,202 +1,413 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { SiteHeader } from "@/components/site-header";
-import { HeroLedger } from "@/components/landing/hero-ledger";
+import { ArrowRight, Check } from "lucide-react";
+import { CopyButton } from "@/components/copy-button";
+import { HeroActionDemo } from "@/components/landing/hero-action-demo";
 import { Quickstart } from "@/components/landing/quickstart";
+import { SiteHeader } from "@/components/site-header";
 
-const benefits = [
+const howItWorks = [
   {
-    title: "See every change",
-    text: "Customers see a plain-language update each time their assistant changes the website.",
+    number: "01",
+    title: "Define the action",
+    text: "Describe what changes, how risky it is, what the user should see first, and how recovery works.",
   },
   {
-    title: "Money waits",
-    text: "Refunds, purchases, and other permanent actions stop until the customer says yes.",
+    number: "02",
+    title: "Let Remy handle execution",
+    text: "Remy validates the input, applies developer policy and user autonomy, then executes, pauses, or blocks.",
   },
   {
-    title: "Change it back",
-    text: "If an action is safe to reverse, Remy gives the customer a specific way to reverse it.",
+    number: "03",
+    title: "Keep the user in control",
+    text: "Every attempt gets a readable receipt, a clear outcome, and the honest recovery option for that action.",
   },
 ];
 
-const flow = [
-  ["Customer", "Asks their AI assistant"],
-  ["WebMCP", "Calls the right website action"],
-  ["Remy", "Shows it, checks it, saves it"],
-  ["Your site", "Makes the real change"],
+const recoveryTypes = [
+  {
+    label: "Exact undo",
+    description: "Restore the previous state after checking nothing changed underneath it.",
+    example: "Address change → restore the old address",
+  },
+  {
+    label: "Compensation",
+    description: "Perform a new corrective action when time cannot literally run backward.",
+    example: "Booked collection → cancel the booking",
+  },
+  {
+    label: "Irreversible",
+    description: "Be explicit that recovery is impossible and require the right approval first.",
+    example: "Sent message → cannot be unsent",
+  },
+];
+
+const adapters = [
+  ["WebMCP", "Available in this demo", "Page-scoped tools for browser agents."],
+  ["MCP", "Planned adapter", "Expose the same semantic actions outside the browser."],
+  ["Agent SDKs", "Planned adapters", "Use the same policy and receipts in agent runtimes."],
 ];
 
 export default function Home() {
   return (
-    <main className="overflow-hidden bg-[#f7f0e4] text-[#17221d]">
-      <div className="bg-[#f7f0e4]">
-        <SiteHeader />
+    <main className="min-h-screen bg-[#0a0a0a] text-[#f5f5f3]">
+      <SiteHeader tone="dark" />
 
-        <section className="mx-auto max-w-[1360px] border-x border-[#17342b]/16">
-          <div className="grid lg:min-h-[700px] lg:grid-cols-[0.86fr_1.14fr]">
-            <div className="flex flex-col justify-center border-b border-[#17342b]/16 px-5 py-14 sm:px-9 sm:py-20 lg:border-b-0 lg:px-12 lg:py-20 xl:px-16">
-              <h1 className="max-w-[720px] text-[clamp(3.45rem,12vw,6.4rem)] font-black leading-[0.91] tracking-[-0.075em] lg:text-[clamp(4.2rem,5.35vw,5.4rem)]">
-                AI assistants can use your website.
-                <span className="mt-2 block text-[#ef6f50]">
-                  Customers see every change.
-                </span>
-              </h1>
-
-              <div className="mt-9 max-w-[580px] border-t border-[#17342b]/18 pt-7">
-                <p className="max-w-[560px] text-base font-medium leading-7 text-[#46564e] sm:text-lg sm:leading-8">
-                  Remy connects your website to AI through WebMCP. It shows
-                  customers what changed, waits before money moves, and lets
-                  them reverse safe actions.
-                </p>
-                <div className="mt-7 flex flex-wrap items-center gap-3">
-                  <Link
-                    href="/demo"
-                    className="group inline-flex min-h-12 items-center gap-3 bg-[#17342b] px-5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
-                  >
-                    Watch an AI return an order
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                  </Link>
-                  <Link
-                    href="#how-it-works"
-                    className="inline-flex min-h-12 items-center border border-[#17342b]/35 px-5 text-sm font-bold transition-colors hover:bg-[#e3eadf]"
-                  >
-                    Add Remy to a site
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            <div className="warm-grid flex items-center border-[#17342b]/16 bg-[#ff805f] px-4 py-8 sm:px-8 sm:py-12 lg:border-l lg:px-9 xl:px-12">
-              <HeroLedger />
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <section id="principles" className="bg-[#fffaf0]">
-        <div className="mx-auto max-w-[1360px] border-x border-[#17342b]/14">
-          <div className="grid border-b border-[#17342b]/14 lg:grid-cols-[0.34fr_0.66fr]">
-            <div className="px-5 py-9 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#6c7871] sm:px-9 lg:border-r lg:border-[#17342b]/14 lg:px-12 lg:py-20">
-              What customers get
-            </div>
-            <div className="px-5 pb-12 sm:px-9 lg:px-12 lg:py-20 xl:px-16">
-              <h2 className="max-w-[880px] text-4xl font-black leading-[1] tracking-[-0.058em] sm:text-6xl lg:text-7xl">
-                The assistant does the clicking. The customer sees every step.
-              </h2>
-            </div>
-          </div>
-
-          {benefits.map((benefit, index) => (
-            <div
-              key={benefit.title}
-              className="grid border-b border-[#17342b]/14 px-5 py-8 sm:px-9 lg:grid-cols-[0.34fr_0.66fr] lg:px-0 lg:py-0"
-            >
-              <div className="flex items-start gap-4 lg:border-r lg:border-[#17342b]/14 lg:px-12 lg:py-10">
-                <span
-                  className={`grid size-8 shrink-0 place-items-center font-mono text-xs font-black ${
-                    index === 1 ? "bg-[#ff805f]" : "bg-[#f4c95d]"
-                  }`}
-                >
-                  {index + 1}
-                </span>
-                <h3 className="text-2xl font-black tracking-[-0.04em]">
-                  {benefit.title}
-                </h3>
-              </div>
-              <p className="mt-3 max-w-[620px] text-base leading-7 text-[#59675f] lg:mt-0 lg:px-12 lg:py-10 xl:px-16">
-                {benefit.text}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="how-it-works" className="bg-[#e3eadf]">
-        <div className="mx-auto max-w-[1360px] border-x border-[#17342b]/14">
-          <div className="grid border-b border-[#17342b]/14 lg:grid-cols-[0.34fr_0.66fr]">
-            <div className="px-5 py-9 font-mono text-[10px] font-bold uppercase tracking-[0.1em] text-[#607269] sm:px-9 lg:border-r lg:border-[#17342b]/14 lg:px-12 lg:py-20">
-              For developers
-            </div>
-            <div className="px-5 pb-12 sm:px-9 lg:px-12 lg:py-20 xl:px-16">
-              <h2 className="max-w-[850px] text-4xl font-black leading-[1] tracking-[-0.058em] sm:text-6xl lg:text-7xl">
-                Add safe WebMCP actions to Next.js in one command.
-              </h2>
-              <p className="mt-7 max-w-[650px] text-base leading-7 text-[#52655c]">
-                Remy installs the WebMCP connection and the customer controls.
-                You describe each website action once.
-              </p>
-            </div>
-          </div>
-          <Quickstart />
-        </div>
-      </section>
-
-      <section className="bg-[#17342b] text-white">
-        <div className="mx-auto max-w-[1360px] border-x border-white/14 px-5 py-16 sm:px-9 lg:px-12 lg:py-24 xl:px-16">
-          <div className="grid gap-8 lg:grid-cols-[0.6fr_0.4fr] lg:items-end">
-            <h2 className="max-w-[850px] text-4xl font-black leading-[1] tracking-[-0.058em] sm:text-6xl lg:text-7xl">
-              A request becomes a safe website action.
-            </h2>
-            <p className="max-w-[500px] text-base leading-7 text-white/62">
-              WebMCP gives the assistant the action. Remy gives the customer a
-              clear view and the final say.
+      <section className="border-b border-white/10">
+        <div className="mx-auto max-w-[1240px] px-5 pb-20 pt-16 sm:px-10 sm:pt-24 lg:px-16">
+          <div className="max-w-[900px]">
+            <h1 className="text-[clamp(3.2rem,6.4vw,5.7rem)] font-medium leading-[0.96] tracking-[-0.068em] text-white">
+              Ship agents users aren&apos;t afraid to trust.
+            </h1>
+            <p className="mt-7 max-w-[720px] text-base leading-7 text-white/60 sm:text-lg sm:leading-8">
+              Remy adds previews, approvals, clear receipts, and recovery to
+              every real action your AI agent takes.
             </p>
+            <p className="mt-3 text-sm leading-6 text-white/38">
+              Let reversible work happen. Pause what matters. Give users a way back.
+            </p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href="/demo"
+                className="group inline-flex h-12 items-center gap-2 bg-[#f5f5f3] px-5 text-sm font-medium text-[#0a0a0a] transition-colors hover:bg-white/85"
+              >
+                Try the demo
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                href="/docs"
+                className="group inline-flex h-12 items-center gap-2 border border-white/20 px-5 text-sm font-medium text-white/76 transition-colors hover:border-white/42 hover:text-white"
+              >
+                View the SDK
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
+
+            <div className="mt-10 flex max-w-[720px] flex-col gap-3 border-y border-white/10 py-4 sm:flex-row sm:items-center">
+              <span className="w-24 shrink-0 font-mono text-[10px] text-white/35">
+                Install · alpha
+              </span>
+              <div className="flex h-11 min-w-0 flex-1 items-center justify-between gap-4 border border-white/14 bg-white/[0.025] pl-4 pr-2">
+                <code className="truncate font-mono text-[12px] text-white/72">
+                  <span className="mr-2 text-[#e66749]">$</span>
+                  npx @remy-ai/cli init
+                </code>
+                <CopyButton value="npx @remy-ai/cli init" tone="dark" />
+              </div>
+              <Link
+                href="/docs#install"
+                className="group inline-flex h-11 shrink-0 items-center gap-2 px-1 text-xs font-medium text-white/56 hover:text-white sm:px-3"
+              >
+                Installation guide
+                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
           </div>
 
-          <div className="mt-14 grid text-sm sm:grid-cols-[1fr_28px_1fr_28px_1fr_28px_1fr] sm:items-center">
-            {flow.map(([title, text], index) => (
-              <div key={title} className="contents">
-                <div
-                  className={`border p-5 ${
-                    title === "Remy"
-                      ? "border-[#ff805f] bg-[#24483c]"
-                      : "border-white/18"
-                  }`}
-                >
-                  <p className="font-bold text-white">{title}</p>
-                  <p className="mt-2 text-xs leading-5 text-white/50">{text}</p>
-                </div>
-                {index < flow.length - 1 ? (
-                  <span className="py-2 text-center text-[#f4c95d] sm:py-0">
-                    →
-                  </span>
-                ) : null}
+          <div className="mt-14 sm:mt-18">
+            <HeroActionDemo />
+          </div>
+        </div>
+      </section>
+
+      <section id="problem" className="border-b border-white/10">
+        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
+          <SectionIntro
+            label="The missing middle"
+            title="Approving everything kills autonomy. Approving nothing kills trust."
+            text="Remy decides how each action should be handled from developer policy, reversibility, and the user's chosen autonomy level."
+          />
+          <div className="mt-14 grid border-y border-white/12 md:grid-cols-3">
+            <ProblemColumn
+              label="Approve every action"
+              outcome="Safe, but slow"
+              text="The user becomes a confirmation loop and the agent stops being useful."
+            />
+            <ProblemColumn
+              label="Remy's middle ground"
+              outcome="Useful autonomy"
+              text="Safe work runs, consequential work waits, and every result has a record."
+              active
+            />
+            <ProblemColumn
+              label="Approve nothing"
+              outcome="Fast, but opaque"
+              text="Users discover mistakes after state has already changed—if they notice at all."
+            />
+          </div>
+        </div>
+      </section>
+
+      <section id="how-it-works" className="border-b border-white/10">
+        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
+          <SectionIntro
+            label="How Remy works"
+            title="One action definition. One honest execution path."
+            text="Developers describe business meaning instead of rebuilding approval, audit, diff, and reversal infrastructure for every feature."
+          />
+          <div className="mt-14 border-t border-white/12">
+            {howItWorks.map((step) => (
+              <div
+                key={step.number}
+                className="grid gap-3 border-b border-white/12 py-7 sm:grid-cols-[52px_0.75fr_1.25fr] sm:items-start"
+              >
+                <span className="font-mono text-[10px] text-[#e66749]">
+                  {step.number}
+                </span>
+                <h3 className="text-base font-medium text-white/90">{step.title}</h3>
+                <p className="max-w-[560px] text-sm leading-6 text-white/44">
+                  {step.text}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#f4c95d]">
-        <div className="mx-auto max-w-[1360px] border-x border-[#17342b]/16 px-5 py-16 sm:px-9 lg:px-12 lg:py-24 xl:px-16">
-          <div className="flex flex-col justify-between gap-10 lg:flex-row lg:items-end">
-            <h2 className="max-w-[940px] text-5xl font-black leading-[0.94] tracking-[-0.068em] sm:text-7xl lg:text-8xl">
-              Watch an AI assistant return a real-looking order.
+      <section id="receipts" className="border-b border-white/10">
+        <div className="mx-auto grid max-w-[1240px] gap-12 px-5 py-20 sm:px-10 lg:grid-cols-[0.72fr_1.28fr] lg:px-16 lg:py-28">
+          <div>
+            <p className="font-mono text-[10px] text-white/35">Receipts</p>
+            <h2 className="mt-4 max-w-[430px] text-3xl font-medium leading-tight tracking-[-0.045em] sm:text-4xl">
+              A system of record people can actually read.
             </h2>
+            <p className="mt-5 max-w-[450px] text-sm leading-6 text-white/47">
+              Each attempt records the requester, policy decision, before-and-after
+              change, result, and recovery path. Failed and reversed actions remain
+              visible instead of disappearing from history.
+            </p>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border border-white/13 bg-[#eee9df] text-[#17241f]">
+            <div className="flex items-center justify-between border-b border-[#17241f]/12 px-5 py-4">
+              <span className="font-mono text-[9px] text-[#6e7872]">Receipt #03</span>
+              <span className="flex items-center gap-1.5 text-[10px] font-medium text-[#276d4e]">
+                <Check className="size-3.5" /> Completed
+              </span>
+            </div>
+            <div className="grid sm:grid-cols-[1fr_1fr]">
+              <div className="border-b border-[#17241f]/12 p-5 sm:border-b-0 sm:border-r sm:p-6">
+                <p className="text-lg font-semibold tracking-[-0.035em]">
+                  Collection address changed
+                </p>
+                <p className="mt-2 text-xs leading-5 text-[#68756e]">
+                  Requested by Claude · WebMCP
+                </p>
+                <dl className="mt-6 border-y border-[#17241f]/12">
+                  <ReceiptLine label="Policy" value="Allowed · exact undo" />
+                  <ReceiptLine label="Result" value="Application state updated" />
+                  <ReceiptLine label="Recorded" value="10:42:09" />
+                </dl>
+              </div>
+              <div className="p-5 sm:p-6">
+                <p className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#737d77]">
+                  What changed
+                </p>
+                <dl className="mt-4 border-y border-[#17241f]/12">
+                  <ReceiptLine label="From" value="14 High Street" />
+                  <ReceiptLine label="To" value="22 New Road" />
+                </dl>
+                <p className="mt-5 text-[11px] leading-5 text-[#68756e]">
+                  Raw inverse data stays private. Interfaces receive domain-readable
+                  changes and recovery status.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="recovery" className="border-b border-white/10">
+        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
+          <SectionIntro
+            label="Recovery semantics"
+            title="Undo when it is true. Compensate when it isn't."
+            text="Remy makes the recovery contract explicit, so the interface never promises that every real-world action can be rolled back."
+          />
+          <div className="mt-14 border-t border-white/12">
+            {recoveryTypes.map((type, index) => (
+              <div
+                key={type.label}
+                className="grid gap-3 border-b border-white/12 py-7 sm:grid-cols-[52px_0.65fr_1fr_1fr] sm:items-start"
+              >
+                <span className="font-mono text-[10px] text-white/25">0{index + 1}</span>
+                <h3 className="text-sm font-medium text-white/90">{type.label}</h3>
+                <p className="text-sm leading-6 text-white/44">{type.description}</p>
+                <p className="font-mono text-[10px] leading-5 text-white/28">{type.example}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="sdk" className="border-b border-white/10">
+        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
+          <SectionIntro
+            label="Developer integration"
+            title="Define actions once. Get control, receipts, and recovery everywhere."
+            text="The action contract stays beside your application code. Remy supplies the execution layer and observable state; you keep the business logic and interface."
+          />
+          <Quickstart />
+          <div className="mt-6 flex flex-wrap items-center gap-4 text-xs">
+            <Link
+              href="/docs"
+              className="group inline-flex items-center gap-2 font-medium text-white/76 hover:text-white"
+            >
+              Read the SDK documentation
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <span className="text-white/24">Next.js alpha · protocol-neutral core</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="adapters" className="border-b border-white/10">
+        <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
+          <div className="grid gap-12 lg:grid-cols-[0.72fr_1.28fr]">
+            <div>
+              <p className="font-mono text-[10px] text-white/35">Adapters</p>
+              <h2 className="mt-4 max-w-[430px] text-3xl font-medium tracking-[-0.045em] sm:text-4xl">
+                WebMCP is the first adapter, not the product boundary.
+              </h2>
+              <p className="mt-5 max-w-[450px] text-sm leading-6 text-white/47">
+                The core action and policy engine does not depend on a browser,
+                UI framework, or agent protocol.
+              </p>
+            </div>
+            <div className="border-t border-white/12">
+              {adapters.map(([name, status, description]) => (
+                <div
+                  key={name}
+                  className="grid gap-2 border-b border-white/12 py-6 sm:grid-cols-[120px_150px_1fr] sm:items-center"
+                >
+                  <span className="text-sm font-medium text-white/88">{name}</span>
+                  <span className="font-mono text-[9px] text-[#e66749]">{status}</span>
+                  <span className="text-sm leading-6 text-white/42">{description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-20 grid gap-12 border-t border-white/12 pt-12 lg:grid-cols-2 lg:gap-20">
+            <div>
+              <p className="font-mono text-[10px] text-white/35">Open SDK</p>
+              <h3 className="mt-4 text-2xl font-medium tracking-[-0.04em]">
+                The action contract stays open and in your codebase.
+              </h3>
+              <p className="mt-4 max-w-[500px] text-sm leading-6 text-white/45">
+                Define actions, run policy locally, keep receipts, and build any
+                interface you need without adopting a hosted control panel.
+              </p>
+            </div>
+            <div>
+              <p className="font-mono text-[10px] text-white/35">Optional hosted layer · planned</p>
+              <h3 className="mt-4 text-2xl font-medium tracking-[-0.04em]">
+                Add coordination when applications outgrow local state.
+              </h3>
+              <p className="mt-4 max-w-[500px] text-sm leading-6 text-white/45">
+                Durable histories, shared policies, approval routing, monitoring,
+                alerts, and evidence exports can sit above the same open contract.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-white/10">
+        <div className="mx-auto flex max-w-[1240px] flex-col justify-between gap-8 px-5 py-16 sm:px-10 md:flex-row md:items-center lg:px-16">
+          <div>
+            <h2 className="text-2xl font-medium tracking-[-0.04em]">
+              Give agents room to work without asking users to look away.
+            </h2>
+            <p className="mt-3 text-sm text-white/42">
+              Try the complete WebMCP flow or start with the SDK guide.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
             <Link
               href="/demo"
-              className="group inline-flex min-h-14 w-fit shrink-0 items-center gap-3 bg-[#ef6f50] px-6 text-sm font-black text-[#17221d] transition-transform hover:-translate-y-1"
+              className="group inline-flex h-11 items-center gap-2 bg-white px-4 text-sm font-medium text-black hover:bg-white/85"
             >
-              Open the WebMCP demo
-              <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+              Try the demo
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+            <Link
+              href="/docs"
+              className="group inline-flex h-11 items-center gap-2 border border-white/20 px-4 text-sm font-medium text-white/72 hover:border-white/40 hover:text-white"
+            >
+              View the SDK
+              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
         </div>
       </section>
 
-      <footer className="bg-[#17342b] text-white/55">
-        <div className="mx-auto flex max-w-[1360px] flex-col gap-5 border-x border-white/14 px-5 py-8 text-xs sm:flex-row sm:items-center sm:justify-between sm:px-9 lg:px-12">
-          <p>Remy · WebMCP actions people can see and reverse.</p>
-          <div className="flex gap-6 font-bold text-white">
-            <Link href="/docs" className="hover:text-[#ff9a80]">
-              Docs
-            </Link>
-            <Link href="/demo" className="hover:text-[#ff9a80]">
-              WebMCP demo
-            </Link>
+      <footer>
+        <div className="mx-auto flex max-w-[1240px] flex-col gap-5 px-5 py-8 text-xs text-white/34 sm:flex-row sm:items-center sm:justify-between sm:px-10 lg:px-16">
+          <p>Remy — control, receipts, and recovery for agent actions.</p>
+          <div className="flex gap-6 text-white/58">
+            <Link href="/docs" className="hover:text-white">Docs</Link>
+            <Link href="/demo" className="hover:text-white">Demo</Link>
           </div>
         </div>
       </footer>
     </main>
+  );
+}
+
+function SectionIntro({
+  label,
+  title,
+  text,
+}: {
+  label: string;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[0.72fr_1.28fr] lg:items-end">
+      <p className="font-mono text-[10px] text-white/35">{label}</p>
+      <div>
+        <h2 className="max-w-[790px] text-3xl font-medium leading-tight tracking-[-0.045em] sm:text-4xl">
+          {title}
+        </h2>
+        <p className="mt-5 max-w-[680px] text-sm leading-6 text-white/47">{text}</p>
+      </div>
+    </div>
+  );
+}
+
+function ProblemColumn({
+  label,
+  outcome,
+  text,
+  active = false,
+}: {
+  label: string;
+  outcome: string;
+  text: string;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={`min-h-52 border-b border-white/12 p-6 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0 ${
+        active ? "bg-white/[0.045]" : ""
+      }`}
+    >
+      <p className={`font-mono text-[9px] ${active ? "text-[#e66749]" : "text-white/30"}`}>
+        {label}
+      </p>
+      <h3 className="mt-8 text-xl font-medium tracking-[-0.035em]">{outcome}</h3>
+      <p className="mt-3 max-w-[300px] text-sm leading-6 text-white/43">{text}</p>
+    </div>
+  );
+}
+
+function ReceiptLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[78px_1fr] gap-3 border-b border-[#17241f]/12 py-3 text-xs last:border-b-0">
+      <dt className="text-[#77817c]">{label}</dt>
+      <dd className="font-medium">{value}</dd>
+    </div>
   );
 }

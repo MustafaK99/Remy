@@ -24,6 +24,8 @@
 .DS_Store
 *.pem
 artifacts/
+/remy-*.png
+/sodium-reference.png
 
 # debug
 npm-debug.log*

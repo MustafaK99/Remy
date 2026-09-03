@@ -4,7 +4,7 @@ import { demoActions } from "./actions";
 import { createInitialDemoState, type DemoState } from "./data";
 import { createDemoStateAdapter } from "./store";
 
-const STORAGE_KEY = "remy-demo-v1";
+const STORAGE_KEY = "remy-shop-demo-v3";
 
 function loadPersisted(): PersistedEngineSnapshot<DemoState> | undefined {
   if (typeof window === "undefined") return undefined;
@@ -36,4 +36,3 @@ export function createDemoEngine(options: { persist?: boolean } = {}) {
   if (persisted) engine.restore(persisted);
   return engine;
 }
-

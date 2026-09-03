@@ -2,128 +2,199 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createDemoEngine } from "@/demo/create-engine";
 import { RESOURCE_KEYS } from "@/demo/data";
 
-describe("Remy demo engine", () => {
+describe("Remy shop demo engine", () => {
   let engine: ReturnType<typeof createDemoEngine>;
 
   beforeEach(() => {
     engine = createDemoEngine();
   });
 
-  it("runs safe actions and pauses an irreversible refund", async () => {
-    await runToRefund(engine);
+  it("runs safe shopping actions and pauses before the purchase", async () => {
+    await runToPurchase(engine);
     const snapshot = engine.getSnapshot();
 
-    expect(snapshot.state.return.collectionAddress).toBe("22 New Road");
-    expect(snapshot.state.return.collection.status).toBe("booked");
-    expect(snapshot.state.return.refund.status).toBe("not_prepared");
+    expect(snapshot.state.cart.line).toMatchObject({
+      productId: "morrow-one",
+      colour: "Charcoal",
+      quantity: 1,
+    });
+    expect(snapshot.state.cart.delivery).toBe("express");
+    expect(snapshot.state.cart.discount?.code).toBe("HELLO10");
+    expect(snapshot.state.order.status).toBe("not_placed");
     expect(snapshot.receipts.at(-1)?.status).toBe("awaiting_approval");
-    expect(snapshot.receipts.at(-1)?.title).toBe("Refund £84");
+    expect(snapshot.receipts.at(-1)?.title).toBe("Place the order");
   });
 
-  it("uses authoritative state when the refund is approved", async () => {
-    await runToRefund(engine);
+  it("uses authoritative cart state when the purchase is approved", async () => {
+    await runToPurchase(engine);
     const pending = engine.getSnapshot().receipts.at(-1);
     const result = await engine.approve(pending!.id);
 
     expect(result.ok).toBe(true);
-    expect(engine.getSnapshot().state.return.refund).toEqual({
-      amount: 84,
-      status: "issued",
+    expect(engine.getSnapshot().state.order).toEqual({
+      id: "MO-2048",
+      status: "placed",
     });
     expect(engine.getSnapshot().receipts.at(-1)?.status).toBe("committed");
   });
 
+  it("allows an unattended purchase only after it is explicitly enabled", async () => {
+    engine.setControls({
+      autonomy: "trusted",
+      paused: false,
+      allowPurchases: true,
+    });
+    const result = await runToPurchase(engine);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.status).toBe("committed");
+    expect(engine.getSnapshot().state.order.status).toBe("placed");
+  });
+
+  it("records a self-reported assistant identity on its actions", async () => {
+    engine.identifyAgent({
+      id: "claude:demo",
+      name: "Claude",
+      provider: "Anthropic",
+    });
+    await addHeadphones(engine);
+
+    expect(engine.getSnapshot().receipts[0].agent).toMatchObject({
+      id: "claude:demo",
+      name: "Claude",
+      selfReported: true,
+    });
+  });
+
+  it("stages a request for more control until the user approves it", () => {
+    const request = engine.requestControlChange({
+      autonomy: "trusted",
+      paused: false,
+      allowPurchases: true,
+    });
+
+    expect(engine.getSnapshot().autonomy).toBe("reversible");
+    expect(engine.getSnapshot().allowPurchases).toBe(false);
+    expect(engine.approveControlChange(request.id)).toBe(true);
+    expect(engine.getSnapshot().autonomy).toBe("trusted");
+    expect(engine.getSnapshot().allowPurchases).toBe(true);
+  });
+
+  it("invalidates a purchase approval when the bag changes", async () => {
+    await runToPurchase(engine);
+    const pending = engine.getSnapshot().receipts.at(-1)!;
+    await engine.run(
+      "set_quantity",
+      { productId: "morrow-one", quantity: 2 },
+      { actor: "user", transport: "manual" },
+    );
+    const result = await engine.approve(pending.id);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("STALE_APPROVAL");
+    expect(engine.getSnapshot().state.order.status).toBe("not_placed");
+    expect(
+      engine.getSnapshot().receipts.find((receipt) => receipt.id === pending.id)
+        ?.status,
+    ).toBe("failed");
+  });
+
   it("does not repeat a mutation with the same idempotency key", async () => {
     const first = await engine.run(
-      "update_collection_address",
-      { orderId: "1842", address: "22 New Road" },
-      { idempotencyKey: "same-address" },
+      "add_to_cart",
+      { productId: "morrow-one", colour: "Charcoal", quantity: 1 },
+      { idempotencyKey: "same-add" },
     );
     const second = await engine.run(
-      "update_collection_address",
-      { orderId: "1842", address: "99 Wrong Road" },
-      { idempotencyKey: "same-address" },
+      "add_to_cart",
+      { productId: "morrow-one", colour: "Oat", quantity: 2 },
+      { idempotencyKey: "same-add" },
     );
 
     expect(first.ok && second.ok && second.actionId).toBe(first.ok && first.actionId);
-    expect(engine.getSnapshot().state.return.collectionAddress).toBe("22 New Road");
+    expect(engine.getSnapshot().state.cart.line?.colour).toBe("Charcoal");
     expect(engine.getSnapshot().receipts).toHaveLength(1);
   });
 
-  it("undoes an address with a linked append-only receipt", async () => {
-    await engine.run("update_collection_address", {
-      orderId: "1842",
-      address: "22 New Road",
-    });
+  it("undoes an item addition with a linked append-only receipt", async () => {
+    await addHeadphones(engine);
     const original = engine.getSnapshot().receipts[0];
     const result = await engine.revert(original.id);
     const receipts = engine.getSnapshot().receipts;
 
     expect(result.ok).toBe(true);
-    expect(engine.getSnapshot().state.return.collectionAddress).toBe("14 High Street");
+    expect(engine.getSnapshot().state.cart.line).toBeUndefined();
     expect(receipts).toHaveLength(2);
     expect(receipts[0].status).toBe("reverted");
     expect(receipts[1].reversesReceiptId).toBe(original.id);
   });
 
-  it("compensates a collection without erasing the booking", async () => {
-    await engine.run("book_collection", { orderId: "1842", date: "Next Friday" });
-    const booking = engine.getSnapshot().receipts[0];
-    await engine.revert(booking.id);
-    const receipts = engine.getSnapshot().receipts;
+  it("restores the previous delivery choice", async () => {
+    await addHeadphones(engine);
+    await engine.run("choose_delivery", { method: "express" });
+    const delivery = engine.getSnapshot().receipts.at(-1)!;
+    await engine.revert(delivery.id);
 
-    expect(engine.getSnapshot().state.return.collection.status).toBe("cancelled");
-    expect(receipts[0].status).toBe("compensated");
-    expect(receipts[1].title).toBe("Cancelled collection");
+    expect(engine.getSnapshot().state.cart.delivery).toBe("standard");
+    expect(engine.getSnapshot().receipts.at(-1)?.reversesReceiptId).toBe(
+      delivery.id,
+    );
   });
 
   it("blocks unsafe undo after a resource version conflict", async () => {
-    await engine.run("update_collection_address", {
-      orderId: "1842",
-      address: "22 New Road",
-    });
-    const receipt = engine.getSnapshot().receipts[0];
-    engine.simulateVersionConflict(RESOURCE_KEYS.address);
+    await addHeadphones(engine);
+    await engine.run("choose_delivery", { method: "express" });
+    const receipt = engine.getSnapshot().receipts.at(-1)!;
+    engine.simulateVersionConflict(RESOURCE_KEYS.delivery);
     const result = await engine.revert(receipt.id);
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("VERSION_CONFLICT");
-    expect(engine.getSnapshot().state.return.collectionAddress).toBe("22 New Road");
+    expect(engine.getSnapshot().state.cart.delivery).toBe("express");
+  });
+
+  it("lets direct website interactions work under restrictive AI controls", async () => {
+    engine.setPaused(true);
+    const agentResult = await addHeadphones(engine);
+    const userResult = await engine.run(
+      "add_to_cart",
+      { productId: "morrow-one", colour: "Oat", quantity: 1 },
+      { actor: "user", transport: "manual" },
+    );
+
+    expect(agentResult.ok).toBe(false);
+    expect(userResult.ok).toBe(true);
+    expect(engine.getSnapshot().state.cart.line?.colour).toBe("Oat");
   });
 
   it("returns actionable validation errors", async () => {
-    const result = await engine.run("update_collection_address", {
-      orderId: "1842",
-      address: "x",
+    const result = await engine.run("add_to_cart", {
+      productId: "morrow-one",
+      colour: "Charcoal",
+      quantity: 12,
     });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("INVALID_INPUT");
-      expect(result.error).toContain("address");
+      expect(result.error).toContain("quantity");
     }
-    expect(engine.getSnapshot().receipts).toHaveLength(1);
     expect(engine.getSnapshot().receipts[0].status).toBe("failed");
   });
 });
 
-async function runToRefund(engine: ReturnType<typeof createDemoEngine>) {
-  await engine.run("create_return_draft", {
-    orderId: "1842",
-    itemIds: ["headphones", "case"],
+function addHeadphones(engine: ReturnType<typeof createDemoEngine>) {
+  return engine.run("add_to_cart", {
+    productId: "morrow-one",
+    colour: "Charcoal",
+    quantity: 1,
   });
-  await engine.run("add_return_reason", {
-    orderId: "1842",
-    reason: "Incompatible with my laptop",
-  });
-  await engine.run("update_collection_address", {
-    orderId: "1842",
-    address: "22 New Road",
-  });
-  await engine.run("book_collection", {
-    orderId: "1842",
-    date: "Next Friday",
-  });
-  await engine.run("prepare_refund", { orderId: "1842" });
-  return engine.run("issue_refund", { orderId: "1842" });
+}
+
+async function runToPurchase(engine: ReturnType<typeof createDemoEngine>) {
+  await addHeadphones(engine);
+  await engine.run("choose_delivery", { method: "express" });
+  await engine.run("apply_discount", { code: "HELLO10" });
+  await engine.run("prepare_checkout", {});
+  return engine.run("place_order", {});
 }

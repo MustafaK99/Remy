@@ -7,17 +7,17 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: {
-    default: "Remy — WebMCP actions customers can see",
+    default: "Remy — control, receipts, and recovery for agent actions",
     template: "%s · Remy",
   },
   description:
-    "Connect your website to AI assistants with WebMCP, show customers every change, and wait for approval before money moves.",
+    "Ship agents users are not afraid to trust with previews, approvals, readable receipts, and honest recovery for real actions.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f7f0e4",
+  themeColor: "#0a0a0a",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -27,7 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-[#f2f0e7] font-sans">{children}</body>
+      <body className="min-h-full bg-[#0a0a0a] font-sans">{children}</body>
     </html>
   );
 }

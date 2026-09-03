@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,154 +13,61 @@ import { createDemoEngine } from "@/demo/create-engine";
 import type { DemoState } from "@/demo/data";
 import type {
   ActionReceipt,
-  AutonomyLevel,
   EngineSnapshot,
   RunResult,
 } from "@/remy/core/types";
 import type { RemyEngine } from "@/remy/core/engine";
 
-type DemoRunStatus = "idle" | "running" | "waiting" | "complete" | "stopped";
+export type ControlMode = "preview" | "ask" | "safe" | "full";
 
 type RemyContextValue = {
   engine: RemyEngine<DemoState>;
   snapshot: EngineSnapshot<DemoState>;
-  runStatus: DemoRunStatus;
+  controlMode: ControlMode;
   lastError?: string;
-  runDemo: () => Promise<void>;
   approve: (actionId: string) => Promise<RunResult>;
   reject: (actionId: string) => RunResult;
   revert: (actionId: string) => Promise<RunResult>;
-  setAutonomy: (level: AutonomyLevel) => void;
-  setPaused: (paused: boolean) => void;
+  runUserAction: (name: string, input: unknown) => Promise<RunResult>;
+  setControlMode: (mode: ControlMode) => void;
+  setAllowPurchases: (allow: boolean) => void;
   reset: () => void;
-  simulateAddressConflict: () => void;
 };
 
 const RemyContext = createContext<RemyContextValue | null>(null);
-
-const HERO_STEPS: Array<[string, unknown]> = [
-  ["get_order", { orderId: "1842" }],
-  ["get_return_options", { orderId: "1842" }],
-  [
-    "create_return_draft",
-    { orderId: "1842", itemIds: ["headphones", "case"] },
-  ],
-  [
-    "add_return_reason",
-    { orderId: "1842", reason: "Incompatible with my laptop" },
-  ],
-  [
-    "update_collection_address",
-    { orderId: "1842", address: "22 New Road" },
-  ],
-  ["book_collection", { orderId: "1842", date: "Next Friday" }],
-  ["prepare_refund", { orderId: "1842" }],
-  ["issue_refund", { orderId: "1842" }],
-];
-
-const delay = (milliseconds: number, signal: AbortSignal) =>
-  new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(resolve, milliseconds);
-    signal.addEventListener(
-      "abort",
-      () => {
-        window.clearTimeout(timeout);
-        reject(new DOMException("Demo stopped", "AbortError"));
-      },
-      { once: true },
-    );
-  });
 
 export function RemyProvider({ children }: { children: ReactNode }) {
   const [engine] = useState(() => createDemoEngine({ persist: true }));
   const [snapshot, setSnapshot] = useState<EngineSnapshot<DemoState>>(
     engine.getSnapshot(),
   );
-  const [runStatus, setRunStatus] = useState<DemoRunStatus>("idle");
   const [lastError, setLastError] = useState<string>();
-  const nextStepRef = useRef(0);
-  const heroActiveRef = useRef(false);
-  const controllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const unsubscribe = engine.subscribe(() => setSnapshot(engine.getSnapshot()));
-    return () => {
-      unsubscribe();
-      controllerRef.current?.abort();
-    };
+    return unsubscribe;
   }, [engine]);
 
-  const continueDemo = useCallback(async (startIndex: number) => {
-    const controller = controllerRef.current ?? new AbortController();
-    controllerRef.current = controller;
-    setRunStatus("running");
-
-    try {
-      for (let index = startIndex; index < HERO_STEPS.length; index += 1) {
-        const [name, input] = HERO_STEPS[index];
-        while (engine.getSnapshot().paused) {
-          await delay(120, controller.signal);
-        }
-        await delay(index === 0 ? 260 : 480, controller.signal);
-        const result = await engine.run(name, input, {
-          actor: "agent",
-          transport: "webmcp",
-          idempotencyKey: `hero:${name}`,
-        });
-        if (!result.ok) {
-          setLastError(result.error);
-          setRunStatus("stopped");
-          return;
-        }
-        nextStepRef.current = index + 1;
-        if (result.requiresApproval || result.status === "staged") {
-          setRunStatus("waiting");
-          return;
-        }
-      }
-      heroActiveRef.current = false;
-      setRunStatus("complete");
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setLastError(error instanceof Error ? error.message : "The demo stopped.");
-        setRunStatus("stopped");
-      }
-    }
-  }, [engine]);
-
-  const runDemo = useCallback(async () => {
-    controllerRef.current?.abort();
-    const selectedAutonomy = engine.getSnapshot().autonomy;
-    engine.reset();
-    engine.setAutonomy(selectedAutonomy);
-    setLastError(undefined);
-    nextStepRef.current = 0;
-    heroActiveRef.current = true;
-    controllerRef.current = new AbortController();
-    await continueDemo(0);
-  }, [continueDemo, engine]);
+  const controlMode: ControlMode = snapshot.paused || snapshot.autonomy === "preview"
+    ? "preview"
+    : snapshot.autonomy === "ask"
+      ? "ask"
+      : snapshot.autonomy === "trusted"
+        ? "full"
+        : "safe";
 
   const approve = useCallback(
     async (actionId: string) => {
       const result = await engine.approve(actionId);
-      if (result.ok) {
-        if (heroActiveRef.current && nextStepRef.current < HERO_STEPS.length) {
-          await continueDemo(nextStepRef.current);
-        } else {
-          heroActiveRef.current = false;
-          setRunStatus("complete");
-        }
-      } else setLastError(result.error);
+      if (!result.ok) setLastError(result.error);
       return result;
     },
-    [continueDemo, engine],
+    [engine],
   );
 
   const reject = useCallback(
     (actionId: string) => {
       const result = engine.reject(actionId);
-      heroActiveRef.current = false;
-      setRunStatus("stopped");
       if (!result.ok) setLastError(result.error);
       return result;
     },
@@ -177,37 +83,73 @@ export function RemyProvider({ children }: { children: ReactNode }) {
     [engine],
   );
 
+  const runUserAction = useCallback(
+    async (name: string, input: unknown) => {
+      setLastError(undefined);
+      const result = await engine.run(name, input, {
+        actor: "user",
+        transport: "manual",
+      });
+      if (!result.ok) setLastError(result.error);
+      return result;
+    },
+    [engine],
+  );
+
+  const setControlMode = useCallback(
+    (mode: ControlMode) => {
+      setLastError(undefined);
+      engine.setControls({
+        autonomy:
+          mode === "preview"
+            ? "preview"
+            : mode === "ask"
+              ? "ask"
+              : mode === "full"
+                ? "trusted"
+                : "reversible",
+        paused: false,
+        allowPurchases: mode === "full" ? snapshot.allowPurchases : false,
+      });
+    },
+    [engine, snapshot.allowPurchases],
+  );
+
+  const setAllowPurchases = useCallback(
+    (allow: boolean) => {
+      if (controlMode !== "full") return;
+      engine.setAllowPurchases(allow);
+    },
+    [controlMode, engine],
+  );
+
   const value = useMemo<RemyContextValue>(
     () => ({
       engine,
       snapshot,
-      runStatus,
+      controlMode,
       lastError,
-      runDemo,
       approve,
       reject,
       revert,
-      setAutonomy: (level) => engine.setAutonomy(level),
-      setPaused: (paused) => engine.setPaused(paused),
+      runUserAction,
+      setControlMode,
+      setAllowPurchases,
       reset: () => {
-        controllerRef.current?.abort();
-        heroActiveRef.current = false;
-        nextStepRef.current = 0;
         engine.reset();
-        setRunStatus("idle");
         setLastError(undefined);
       },
-      simulateAddressConflict: () =>
-        engine.simulateVersionConflict("return:1842:address"),
     }),
     [
       approve,
+      controlMode,
       engine,
       lastError,
       reject,
       revert,
-      runDemo,
-      runStatus,
+      runUserAction,
+      setControlMode,
+      setAllowPurchases,
       snapshot,
     ],
   );

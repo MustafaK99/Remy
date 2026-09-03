@@ -4,10 +4,20 @@ import type {
   ActionPreview,
   ActionReceipt,
 } from "@/remy/core/types";
-import { RESOURCE_KEYS, type DemoState } from "./data";
+import {
+  RESOURCE_KEYS,
+  getCartTotal,
+  getDeliveryCost,
+  getDiscount,
+  getSubtotal,
+  type CartLine,
+  type DemoState,
+} from "./data";
 
 const emptySchema = z.object({}).strict();
-const orderSchema = z.object({ orderId: z.literal("1842") }).strict();
+const productSchema = z
+  .object({ productId: z.literal("morrow-one") })
+  .strict();
 
 function updateState(
   context: { getState: () => DemoState; setState: (state: DemoState) => void },
@@ -16,11 +26,13 @@ function updateState(
   context.setState(update(context.getState()));
 }
 
-function textReplace(
+function change(
   label: string,
   path: string,
-  before: string | undefined,
-  after: string | undefined,
+  before: unknown,
+  after: unknown,
+  displayBefore: string,
+  displayAfter: string,
 ): ActionPreview["diff"][number] {
   return {
     path,
@@ -28,467 +40,501 @@ function textReplace(
     kind: before === undefined ? "add" : after === undefined ? "remove" : "replace",
     before,
     after,
-    displayBefore: before ?? "Not set",
-    displayAfter: after ?? "Not set",
+    displayBefore,
+    displayAfter,
   };
 }
 
-export const getOrderAction: ActionDefinition<DemoState, { orderId: "1842" }> = {
-  name: "get_order",
-  title: "Read order",
+export const getProductAction: ActionDefinition<
+  DemoState,
+  { productId: "morrow-one" }
+> = {
+  name: "get_product",
+  title: "Read product details",
   description:
-    "Read fictional order #1842 and its eligible items. This does not change application state.",
+    "Read the price, colours, and availability for Morrow One headphones. This does not change the shop.",
   kind: "read",
-  inputSchema: orderSchema,
+  inputSchema: productSchema,
   inputJsonSchema: {
     type: "object",
-    properties: { orderId: { type: "string", const: "1842" } },
-    required: ["orderId"],
+    properties: { productId: { type: "string", const: "morrow-one" } },
+    required: ["productId"],
     additionalProperties: false,
   },
   risk: "low",
   reversibility: "irreversible",
   preview: (_input, context) => ({
-    summary: "Read order #1842 and its return eligibility.",
-    resourceKeys: [RESOURCE_KEYS.order],
-    before: context.getState().order,
-    after: context.getState().order,
+    summary: "Read the Morrow One product details.",
+    resourceKeys: [],
+    before: context.getState().product,
+    after: context.getState().product,
     diff: [],
   }),
   execute: (_input, context) => ({
-    orderId: context.getState().order.id,
-    items: context.getState().order.items.map(({ id, name, price }) => ({
-      id,
-      name,
-      price,
-    })),
-    refundableTotal: context.getState().return.refund.amount,
+    ...context.getState().product,
+    colours: ["Charcoal", "Oat"],
+    inStock: true,
   }),
 };
 
-export const getReturnOptionsAction: ActionDefinition<
-  DemoState,
-  { orderId: "1842" }
-> = {
-  name: "get_return_options",
-  title: "Checked return options",
+export const getCartAction: ActionDefinition<DemoState, Record<string, never>> = {
+  name: "get_cart",
+  title: "Read shopping bag",
   description:
-    "Read available return and collection options for order #1842. This does not make a booking.",
+    "Read the current bag, delivery choice, discount, and authoritative total. This does not change the shop.",
   kind: "read",
-  inputSchema: orderSchema,
-  inputJsonSchema: getOrderAction.inputJsonSchema,
+  inputSchema: emptySchema,
+  inputJsonSchema: { type: "object", properties: {}, additionalProperties: false },
   risk: "low",
   reversibility: "irreversible",
-  preview: () => ({
-    summary: "Checked return eligibility and next-Friday collection.",
-    resourceKeys: [RESOURCE_KEYS.order],
+  preview: (_input, context) => ({
+    summary: "Read the current shopping bag.",
+    resourceKeys: [],
+    before: context.getState().cart,
+    after: context.getState().cart,
     diff: [],
   }),
-  execute: () => ({ eligible: true, collectionDays: ["next Friday"] }),
+  execute: (_input, context) => {
+    const state = context.getState();
+    return {
+      item: state.cart.line,
+      delivery: state.cart.delivery,
+      discountCode: state.cart.discount?.code,
+      total: getCartTotal(state),
+    };
+  },
 };
 
-export const createReturnDraftAction: ActionDefinition<
+export const addToCartAction: ActionDefinition<
   DemoState,
-  { orderId: "1842"; itemIds: string[] }
+  { productId: "morrow-one"; colour: "Charcoal" | "Oat"; quantity: number }
 > = {
-  name: "create_return_draft",
-  title: "Created return draft",
+  name: "add_to_cart",
+  title: "Added Morrow One to bag",
   description:
-    "Create a return draft for selected items. This changes return state but can be undone exactly.",
+    "Add Morrow One headphones to the shopping bag in the selected colour and quantity. This can be undone exactly.",
   kind: "mutation",
   inputSchema: z
     .object({
-      orderId: z.literal("1842"),
-      itemIds: z.array(z.enum(["headphones", "case"])).min(1),
+      productId: z.literal("morrow-one"),
+      colour: z.enum(["Charcoal", "Oat"]),
+      quantity: z.number().int().min(1).max(3),
     })
     .strict(),
   inputJsonSchema: {
     type: "object",
     properties: {
-      orderId: { type: "string", const: "1842" },
-      itemIds: {
-        type: "array",
-        minItems: 1,
-        items: { type: "string", enum: ["headphones", "case"] },
-      },
+      productId: { type: "string", const: "morrow-one" },
+      colour: { type: "string", enum: ["Charcoal", "Oat"] },
+      quantity: { type: "integer", minimum: 1, maximum: 3 },
     },
-    required: ["orderId", "itemIds"],
+    required: ["productId", "colour", "quantity"],
     additionalProperties: false,
   },
   risk: "low",
   reversibility: "exact",
-  preview: (input, context) => ({
-    summary: `Create a return draft for ${input.itemIds.length} items.`,
-    resourceKeys: [RESOURCE_KEYS.returnDraft],
-    before: context.getState().return.status,
-    after: "draft",
-    diff: [
-      textReplace(
-        "Return status",
-        "return.status",
-        context.getState().return.status,
-        "Draft created",
-      ),
-    ],
-  }),
+  preview: (input, context) => {
+    const before = context.getState().cart.line;
+    const after: CartLine = {
+      productId: "morrow-one",
+      name: context.getState().product.name,
+      price: context.getState().product.price,
+      colour: input.colour,
+      quantity: input.quantity,
+    };
+    return {
+      summary: `Add ${input.quantity} Morrow One in ${input.colour} to the bag.`,
+      resourceKeys: [RESOURCE_KEYS.cart],
+      before,
+      after,
+      diff: [
+        change(
+          "Shopping bag",
+          "cart.line",
+          before,
+          after,
+          before ? `${before.quantity} × ${before.name}` : "Empty",
+          `${input.quantity} × Morrow One · ${input.colour}`,
+        ),
+      ],
+    };
+  },
   execute: (input, context) => {
+    const line: CartLine = {
+      productId: "morrow-one",
+      name: context.getState().product.name,
+      price: context.getState().product.price,
+      colour: input.colour,
+      quantity: input.quantity,
+    };
     updateState(context, (state) => ({
       ...state,
-      return: { ...state.return, status: "draft" },
+      cart: { ...state.cart, line },
     }));
-    return { returnId: "ret_1842", itemIds: input.itemIds };
+    return { item: line, total: getCartTotal(context.getState()) };
   },
   undo: (receipt, context) => {
     updateState(context, (state) => ({
       ...state,
-      return: {
-        ...state.return,
-        status: receipt.before as DemoState["return"]["status"],
-      },
+      cart: { ...state.cart, line: receipt.before as CartLine | undefined },
     }));
-    return { status: receipt.before };
+    return { item: receipt.before };
   },
 };
 
-export const addReturnReasonAction: ActionDefinition<
+export const removeFromCartAction: ActionDefinition<
   DemoState,
-  { orderId: "1842"; reason: string }
+  { productId: "morrow-one" }
 > = {
-  name: "add_return_reason",
-  title: "Added return reason",
+  name: "remove_from_cart",
+  title: "Removed Morrow One from bag",
   description:
-    "Add a reason to the return draft. This changes return state and can be undone exactly.",
+    "Remove Morrow One from the shopping bag. This can be undone exactly.",
   kind: "mutation",
-  inputSchema: z
-    .object({ orderId: z.literal("1842"), reason: z.string().min(3).max(160) })
-    .strict(),
-  inputJsonSchema: {
-    type: "object",
-    properties: {
-      orderId: { type: "string", const: "1842" },
-      reason: { type: "string", minLength: 3, maxLength: 160 },
-    },
-    required: ["orderId", "reason"],
-    additionalProperties: false,
-  },
+  inputSchema: productSchema,
+  inputJsonSchema: getProductAction.inputJsonSchema,
   risk: "low",
   reversibility: "exact",
-  preview: (input, context) => ({
-    summary: `Set the return reason to “${input.reason}”`,
-    resourceKeys: [RESOURCE_KEYS.returnReason],
-    before: context.getState().return.reason,
-    after: input.reason,
-    diff: [
-      textReplace(
-        "Return reason",
-        "return.reason",
-        context.getState().return.reason,
-        input.reason,
-      ),
-    ],
-  }),
-  execute: (input, context) => {
-    updateState(context, (state) => ({
-      ...state,
-      return: { ...state.return, reason: input.reason },
-    }));
-    return { reason: input.reason };
+  preview: (_input, context) => {
+    const before = context.getState().cart.line;
+    if (!before) throw new Error("Morrow One is not in the bag.");
+    return {
+      summary: "Remove Morrow One from the shopping bag.",
+      resourceKeys: [RESOURCE_KEYS.cart],
+      before,
+      after: undefined,
+      diff: [
+        change(
+          "Shopping bag",
+          "cart.line",
+          before,
+          undefined,
+          `${before.quantity} × ${before.name}`,
+          "Empty",
+        ),
+      ],
+    };
   },
-  undo: (receipt, context) => {
-    updateState(context, (state) => ({
-      ...state,
-      return: {
-        ...state.return,
-        reason: receipt.before as string | undefined,
-      },
-    }));
-    return { reason: receipt.before };
-  },
-};
-
-export const updateCollectionAddressAction: ActionDefinition<
-  DemoState,
-  { orderId: "1842"; address: string }
-> = {
-  name: "update_collection_address",
-  title: "Changed collection address",
-  description:
-    "Change the collection address for return #1842. This mutates application state and can be undone exactly if the address has not changed again.",
-  kind: "mutation",
-  inputSchema: z
-    .object({ orderId: z.literal("1842"), address: z.string().min(5).max(120) })
-    .strict(),
-  inputJsonSchema: {
-    type: "object",
-    properties: {
-      orderId: { type: "string", const: "1842" },
-      address: { type: "string", minLength: 5, maxLength: 120 },
-    },
-    required: ["orderId", "address"],
-    additionalProperties: false,
-  },
-  risk: "medium",
-  reversibility: "exact",
-  preview: (input, context) => ({
-    summary: `Change collection from ${context.getState().return.collectionAddress} to ${input.address}.`,
-    resourceKeys: [RESOURCE_KEYS.address],
-    before: context.getState().return.collectionAddress,
-    after: input.address,
-    diff: [
-      textReplace(
-        "Collection address",
-        "return.collectionAddress",
-        context.getState().return.collectionAddress,
-        input.address,
-      ),
-    ],
-  }),
-  execute: (input, context) => {
-    updateState(context, (state) => ({
-      ...state,
-      return: { ...state.return, collectionAddress: input.address },
-    }));
-    return { collectionAddress: input.address };
-  },
-  undo: (receipt, context) => {
-    updateState(context, (state) => ({
-      ...state,
-      return: {
-        ...state.return,
-        collectionAddress: receipt.before as string,
-      },
-    }));
-    return { collectionAddress: receipt.before };
-  },
-};
-
-export const bookCollectionAction: ActionDefinition<
-  DemoState,
-  { orderId: "1842"; date: string }
-> = {
-  name: "book_collection",
-  title: "Booked Friday collection",
-  description:
-    "Book a fictional courier collection. This creates a booking; it can be compensated by a separate cancellation, but the booking remains in history.",
-  kind: "mutation",
-  inputSchema: z
-    .object({ orderId: z.literal("1842"), date: z.string().min(3).max(40) })
-    .strict(),
-  inputJsonSchema: {
-    type: "object",
-    properties: {
-      orderId: { type: "string", const: "1842" },
-      date: { type: "string", minLength: 3, maxLength: 40 },
-    },
-    required: ["orderId", "date"],
-    additionalProperties: false,
-  },
-  risk: "medium",
-  reversibility: "compensating",
-  safeToCompensateAutomatically: true,
-  preview: (input, context) => ({
-    summary: `Book ${input.date} collection from ${context.getState().return.collectionAddress}.`,
-    resourceKeys: [RESOURCE_KEYS.collection],
-    before: context.getState().return.collection.status,
-    after: "booked",
-    diff: [
-      textReplace(
-        "Collection",
-        "return.collection.status",
-        "Not booked",
-        `${input.date} · ${context.getState().return.collectionAddress}`,
-      ),
-    ],
-  }),
-  execute: (input, context) => {
-    updateState(context, (state) => ({
-      ...state,
-      return: {
-        ...state.return,
-        collection: {
-          status: "booked",
-          date: input.date,
-          bookingId: "col_7F4A",
-        },
-      },
-    }));
-    return { bookingId: "col_7F4A", status: "booked", date: input.date };
-  },
-  compensate: (_receipt, context) => {
-    updateState(context, (state) => ({
-      ...state,
-      return: {
-        ...state.return,
-        collection: { ...state.return.collection, status: "cancelled" },
-      },
-    }));
-    return { bookingId: "col_7F4A", status: "cancelled" };
-  },
-};
-
-export const cancelCollectionAction: ActionDefinition<
-  DemoState,
-  { orderId: "1842" }
-> = {
-  name: "cancel_collection",
-  title: "Cancel collection",
-  description:
-    "Cancel the current fictional courier collection. This creates a compensating business action and does not erase the original booking.",
-  kind: "mutation",
-  inputSchema: orderSchema,
-  inputJsonSchema: getOrderAction.inputJsonSchema,
-  risk: "medium",
-  reversibility: "compensating",
-  safeToCompensateAutomatically: true,
-  preview: (_input, context) => ({
-    summary: "Cancel the current collection while retaining its booking history.",
-    resourceKeys: [RESOURCE_KEYS.collection],
-    before: context.getState().return.collection.status,
-    after: "cancelled",
-    diff: [
-      textReplace(
-        "Collection",
-        "return.collection.status",
-        context.getState().return.collection.status === "booked"
-          ? `${context.getState().return.collection.date} · booked`
-          : context.getState().return.collection.status,
-        "Cancelled",
-      ),
-    ],
-  }),
   execute: (_input, context) => {
-    if (context.getState().return.collection.status !== "booked") {
-      throw new Error("There is no active collection to cancel.");
-    }
     updateState(context, (state) => ({
       ...state,
-      return: {
-        ...state.return,
-        collection: { ...state.return.collection, status: "cancelled" },
-      },
+      cart: { ...state.cart, line: undefined, discount: undefined },
     }));
-    return { bookingId: "col_7F4A", status: "cancelled" };
+    return { removed: true };
   },
-  compensate: (receipt, context) => {
+  undo: (receipt, context) => {
     updateState(context, (state) => ({
       ...state,
-      return: {
-        ...state.return,
-        collection: {
-          ...state.return.collection,
-          status: receipt.before === "booked" ? "booked" : "not_booked",
-        },
-      },
+      cart: { ...state.cart, line: receipt.before as CartLine },
     }));
-    return { bookingId: "col_7F4A", status: receipt.before };
+    return { item: receipt.before };
   },
 };
 
-export const prepareRefundAction: ActionDefinition<
+export const setQuantityAction: ActionDefinition<
   DemoState,
-  { orderId: "1842" }
+  { productId: "morrow-one"; quantity: number }
 > = {
-  name: "prepare_refund",
-  title: "Prepared refund",
+  name: "set_quantity",
+  title: "Changed bag quantity",
   description:
-    "Calculate an authoritative refund preview from application state. This does not issue money or change refund status.",
-  kind: "read",
-  inputSchema: orderSchema,
-  inputJsonSchema: getOrderAction.inputJsonSchema,
-  risk: "low",
-  reversibility: "irreversible",
-  preview: (_input, context) => ({
-    summary: `Prepare an £${context.getState().return.refund.amount} refund preview.`,
-    resourceKeys: [RESOURCE_KEYS.refund],
-    before: context.getState().return.refund,
-    after: context.getState().return.refund,
-    diff: [],
-    detail: {
-      Amount: `£${context.getState().return.refund.amount}`,
-      Destination: context.getState().order.paymentMethod,
-    },
-  }),
-  execute: (_input, context) => ({
-    orderId: "1842",
-    amount: context.getState().return.refund.amount,
-    destination: context.getState().order.paymentMethod,
-    canIssue: true,
-  }),
-};
-
-export const issueRefundAction: ActionDefinition<
-  DemoState,
-  { orderId: "1842" }
-> = {
-  name: "issue_refund",
-  title: "Refund £84",
-  description:
-    "Refund a fictional £84 to the original payment method. This cannot be undone, so Remy always asks first.",
+    "Set the quantity of Morrow One in the shopping bag. This can be undone exactly.",
   kind: "mutation",
-  inputSchema: orderSchema,
-  inputJsonSchema: getOrderAction.inputJsonSchema,
-  risk: "high",
-  reversibility: "irreversible",
-  alwaysRequireApproval: true,
-  preview: (_input, context) => ({
-    summary: `Refund £${context.getState().return.refund.amount} to ${context.getState().order.paymentMethod}.`,
-    resourceKeys: [RESOURCE_KEYS.refund],
-    before: context.getState().return.refund.status,
-    after: "issued",
-    diff: [
-      {
-        path: "return.refund.status",
-        label: "Refund",
-        kind: "status",
-        before: context.getState().return.refund.status,
-        after: "issued",
-        displayBefore: "Not issued",
-        displayAfter: `£${context.getState().return.refund.amount} issued`,
-      },
-    ],
-    detail: {
-      Amount: `£${context.getState().return.refund.amount}`,
-      Destination: context.getState().order.paymentMethod,
-      Order: "#1842",
-      "Can this be undone?": "No",
-      "Requested by": "Your browser assistant",
+  inputSchema: z
+    .object({
+      productId: z.literal("morrow-one"),
+      quantity: z.number().int().min(1).max(3),
+    })
+    .strict(),
+  inputJsonSchema: {
+    type: "object",
+    properties: {
+      productId: { type: "string", const: "morrow-one" },
+      quantity: { type: "integer", minimum: 1, maximum: 3 },
     },
-  }),
-  execute: (_input, context) => {
-    const authoritativeAmount = context.getState().return.refund.amount;
-    if (context.getState().return.refund.status === "issued") {
-      throw new Error("The refund has already been issued.");
-    }
+    required: ["productId", "quantity"],
+    additionalProperties: false,
+  },
+  risk: "low",
+  reversibility: "exact",
+  preview: (input, context) => {
+    const before = context.getState().cart.line?.quantity;
+    if (!before) throw new Error("Add Morrow One before changing its quantity.");
+    return {
+      summary: `Change the bag quantity from ${before} to ${input.quantity}.`,
+      resourceKeys: [RESOURCE_KEYS.cart],
+      before,
+      after: input.quantity,
+      diff: [
+        change(
+          "Quantity",
+          "cart.line.quantity",
+          before,
+          input.quantity,
+          String(before),
+          String(input.quantity),
+        ),
+      ],
+    };
+  },
+  execute: (input, context) => {
     updateState(context, (state) => ({
       ...state,
-      return: {
-        ...state.return,
-        status: "ready",
-        refund: { ...state.return.refund, status: "issued" },
+      cart: {
+        ...state.cart,
+        line: state.cart.line
+          ? { ...state.cart.line, quantity: input.quantity }
+          : undefined,
       },
+    }));
+    return { quantity: input.quantity, total: getCartTotal(context.getState()) };
+  },
+  undo: (receipt, context) => {
+    updateState(context, (state) => ({
+      ...state,
+      cart: {
+        ...state.cart,
+        line: state.cart.line
+          ? { ...state.cart.line, quantity: receipt.before as number }
+          : undefined,
+      },
+    }));
+    return { quantity: receipt.before };
+  },
+};
+
+export const chooseDeliveryAction: ActionDefinition<
+  DemoState,
+  { method: "standard" | "express" }
+> = {
+  name: "choose_delivery",
+  title: "Changed delivery",
+  description:
+    "Choose standard or express delivery for the current bag. This can be undone exactly.",
+  kind: "mutation",
+  inputSchema: z.object({ method: z.enum(["standard", "express"]) }).strict(),
+  inputJsonSchema: {
+    type: "object",
+    properties: { method: { type: "string", enum: ["standard", "express"] } },
+    required: ["method"],
+    additionalProperties: false,
+  },
+  risk: "low",
+  reversibility: "exact",
+  preview: (input, context) => {
+    if (!context.getState().cart.line) {
+      throw new Error("Add an item before choosing delivery.");
+    }
+    const before = context.getState().cart.delivery;
+    return {
+      summary: `Choose ${input.method} delivery.`,
+      resourceKeys: [RESOURCE_KEYS.delivery],
+      before,
+      after: input.method,
+      diff: [
+        change(
+          "Delivery",
+          "cart.delivery",
+          before,
+          input.method,
+          before === "express" ? "Express · £8" : "Standard · Free",
+          input.method === "express" ? "Express · £8" : "Standard · Free",
+        ),
+      ],
+    };
+  },
+  execute: (input, context) => {
+    updateState(context, (state) => ({
+      ...state,
+      cart: { ...state.cart, delivery: input.method },
+    }));
+    return { method: input.method, cost: getDeliveryCost(context.getState()) };
+  },
+  undo: (receipt, context) => {
+    updateState(context, (state) => ({
+      ...state,
+      cart: {
+        ...state.cart,
+        delivery: receipt.before as DemoState["cart"]["delivery"],
+      },
+    }));
+    return { method: receipt.before };
+  },
+};
+
+export const applyDiscountAction: ActionDefinition<
+  DemoState,
+  { code: "HELLO10" }
+> = {
+  name: "apply_discount",
+  title: "Applied 10% discount",
+  description:
+    "Apply the valid HELLO10 discount code to the current bag. This can be undone exactly.",
+  kind: "mutation",
+  inputSchema: z.object({ code: z.literal("HELLO10") }).strict(),
+  inputJsonSchema: {
+    type: "object",
+    properties: { code: { type: "string", const: "HELLO10" } },
+    required: ["code"],
+    additionalProperties: false,
+  },
+  risk: "low",
+  reversibility: "exact",
+  preview: (input, context) => {
+    if (!context.getState().cart.line) {
+      throw new Error("Add an item before applying a discount.");
+    }
+    const before = context.getState().cart.discount;
+    return {
+      summary: `Apply ${input.code} for 10% off.`,
+      resourceKeys: [RESOURCE_KEYS.discount],
+      before,
+      after: { code: input.code },
+      diff: [
+        change(
+          "Discount",
+          "cart.discount",
+          before,
+          { code: input.code },
+          before?.code ?? "None",
+          `${input.code} · 10% off`,
+        ),
+      ],
+    };
+  },
+  execute: (input, context) => {
+    updateState(context, (state) => ({
+      ...state,
+      cart: { ...state.cart, discount: { code: input.code } },
     }));
     return {
-      refundId: "rf_mock_1842",
-      amount: authoritativeAmount,
-      status: "issued",
+      code: input.code,
+      amountSaved: getDiscount(context.getState()),
+      total: getCartTotal(context.getState()),
+    };
+  },
+  undo: (receipt, context) => {
+    updateState(context, (state) => ({
+      ...state,
+      cart: {
+        ...state.cart,
+        discount: receipt.before as DemoState["cart"]["discount"],
+      },
+    }));
+    return { discount: receipt.before };
+  },
+};
+
+export const prepareCheckoutAction: ActionDefinition<
+  DemoState,
+  Record<string, never>
+> = {
+  name: "prepare_checkout",
+  title: "Read checkout total",
+  description:
+    "Calculate the authoritative checkout total and payment destination. This does not place an order.",
+  kind: "read",
+  inputSchema: emptySchema,
+  inputJsonSchema: getCartAction.inputJsonSchema,
+  risk: "low",
+  reversibility: "irreversible",
+  preview: (_input, context) => ({
+    summary: `Prepare a £${getCartTotal(context.getState())} checkout preview.`,
+    resourceKeys: [],
+    diff: [],
+  }),
+  execute: (_input, context) => {
+    const state = context.getState();
+    if (!state.cart.line) throw new Error("The shopping bag is empty.");
+    return {
+      subtotal: getSubtotal(state),
+      delivery: getDeliveryCost(state),
+      discount: getDiscount(state),
+      total: getCartTotal(state),
+      paymentMethod: state.customer.paymentMethod,
+      deliveryAddress: state.customer.deliveryAddress,
     };
   },
 };
 
+export const placeOrderAction: ActionDefinition<
+  DemoState,
+  Record<string, never>
+> = {
+  name: "place_order",
+  title: "Place the order",
+  description:
+    "Place the order and charge the saved payment method. This spends money and cannot be undone. Remy requires approval unless the user has explicitly enabled unattended purchases.",
+  kind: "mutation",
+  inputSchema: emptySchema,
+  inputJsonSchema: getCartAction.inputJsonSchema,
+  risk: "high",
+  reversibility: "irreversible",
+  requiresPurchasePermission: true,
+  preview: (_input, context) => {
+    const state = context.getState();
+    if (!state.cart.line) throw new Error("The shopping bag is empty.");
+    if (state.order.status === "placed") throw new Error("This order is already placed.");
+    const total = getCartTotal(state);
+    return {
+      summary: `Place the order for £${total}.`,
+      resourceKeys: [
+        RESOURCE_KEYS.cart,
+        RESOURCE_KEYS.delivery,
+        RESOURCE_KEYS.discount,
+        RESOURCE_KEYS.order,
+      ],
+      before: state.order,
+      after: { status: "placed", id: "MO-2048" },
+      diff: [
+        {
+          path: "order.status",
+          label: "Purchase",
+          kind: "status",
+          before: "not_placed",
+          after: "placed",
+          displayBefore: "Not purchased",
+          displayAfter: `Charge £${total}`,
+        },
+      ],
+      detail: {
+        Item: `${state.cart.line.quantity} × ${state.cart.line.name}`,
+        Total: `£${total}`,
+        Payment: state.customer.paymentMethod,
+        Delivery: state.customer.deliveryAddress,
+        "Can this be undone?": "No",
+      },
+    };
+  },
+  execute: (_input, context) => {
+    const state = context.getState();
+    const total = getCartTotal(state);
+    if (!state.cart.line) throw new Error("The shopping bag is empty.");
+    if (state.order.status === "placed") throw new Error("This order is already placed.");
+    updateState(context, (current) => ({
+      ...current,
+      order: { status: "placed", id: "MO-2048" },
+    }));
+    return { orderId: "MO-2048", status: "placed", total };
+  },
+};
+
 export const demoActions = [
-  getOrderAction,
-  getReturnOptionsAction,
-  createReturnDraftAction,
-  addReturnReasonAction,
-  updateCollectionAddressAction,
-  bookCollectionAction,
-  cancelCollectionAction,
-  prepareRefundAction,
-  issueRefundAction,
+  getProductAction,
+  getCartAction,
+  addToCartAction,
+  removeFromCartAction,
+  setQuantityAction,
+  chooseDeliveryAction,
+  applyDiscountAction,
+  prepareCheckoutAction,
+  placeOrderAction,
 ] as const;
 
-export function isAddressReceipt(receipt: ActionReceipt) {
-  return receipt.actionName === "update_collection_address";
+export function isCartReceipt(receipt: ActionReceipt) {
+  return ["add_to_cart", "remove_from_cart", "set_quantity"].includes(
+    receipt.actionName,
+  );
 }
 
 export const emptyActionSchema = emptySchema;
