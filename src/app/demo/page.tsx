@@ -4,7 +4,7 @@ import { DemoLoader } from "@/components/demo/demo-loader";
 export const metadata: Metadata = {
   title: "Live WebMCP demo",
   description:
-    "See Remy apply autonomy, record changes, support recovery, and pause consequential WebMCP actions inside a fictional shop.",
+    "Use WebMCP to return order #1842 while Remy runs reversible work, records receipts, and pauses the refund for approval.",
 };
 
 export default function DemoPage() {

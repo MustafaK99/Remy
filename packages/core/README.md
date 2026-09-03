@@ -2,9 +2,7 @@
 
 Protocol-neutral permissions, approvals, receipts, and recovery for AI agent actions.
 
-```bash
-npm install @remy-ai/core
-```
+> Alpha workspace package. It is prepared for publication but is not on npm yet. Run it from the [public repository](https://github.com/MustafaK99/Remy) today.
 
 ```ts
 import { createRemy, succeed } from "@remy-ai/core";

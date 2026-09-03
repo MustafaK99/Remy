@@ -3,126 +3,195 @@ import { summarizeActionRun } from "@remy-ai/core";
 import { RESOURCE_KEYS } from "./data";
 import { createDemoRuntime } from "./runtime";
 
-describe("Morrow demo on the generic Remy client", () => {
+describe("return demo on the generic Remy client", () => {
   let runtime: ReturnType<typeof createDemoRuntime>;
 
   beforeEach(() => {
     runtime = createDemoRuntime();
   });
 
-  it("runs reversible work and pauses before the purchase", async () => {
-    await runToPurchase(runtime);
+  it("runs recoverable return work and pauses before the refund", async () => {
+    await runToRefund(runtime);
     const state = runtime.store.getSnapshot();
     const receipts = runtime.remy.getSnapshot().receipts;
-    expect(state.cart.line).toMatchObject({ productId: "morrow-one", colour: "Charcoal", quantity: 1 });
-    expect(state.cart.delivery).toBe("express");
-    expect(state.cart.discount?.code).toBe("HELLO10");
-    expect(state.order.status).toBe("not_placed");
+    expect(state.returnRequest).toMatchObject({
+      status: "draft",
+      itemIds: ["headphones", "case"],
+      reason: "Incompatible with my laptop",
+      collectionAddress: "22 New Road",
+      collection: { status: "booked", date: "next Friday" },
+      refund: { status: "not_issued", amount: 84 },
+    });
     expect(receipts.at(-1)?.status).toBe("awaiting_approval");
-    expect(receipts.at(-1)?.action.title).toBe("Place the order");
+    expect(receipts.at(-1)?.action.title).toBe("Refund £84");
   });
 
-  it("uses authoritative cart state when the purchase is approved", async () => {
-    await runToPurchase(runtime);
+  it("issues the authoritative refund after explicit approval", async () => {
+    await runToRefund(runtime);
     const pending = runtime.remy.getSnapshot().receipts.at(-1)!;
     expect((await runtime.remy.approve(pending.id)).ok).toBe(true);
-    expect(runtime.store.getSnapshot().order).toEqual({ id: "MO-2048", status: "placed" });
+    expect(runtime.store.getSnapshot().returnRequest).toMatchObject({
+      status: "complete",
+      refund: { status: "issued", amount: 84, refundId: "RF-1842" },
+    });
   });
 
-  it("allows unattended purchase only with a generic grant", async () => {
-    runtime.remy.setControls({ autonomy: "trusted", paused: false, grants: ["commerce.purchase"] });
-    const result = await runToPurchase(runtime);
+  it("lets trusted mode run the irreversible refund without another approval", async () => {
+    runtime.remy.setControls({ autonomy: "trusted", paused: false, grants: [] });
+    const result = await runToRefund(runtime);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.status).toBe("committed");
-    expect(runtime.store.getSnapshot().order.status).toBe("placed");
+    expect(runtime.store.getSnapshot().returnRequest.refund.status).toBe("issued");
   });
 
-  it("records principal assurance explicitly", async () => {
-    runtime.remy.identifyPrincipal({ id: "claude:demo", name: "Claude", provider: "Anthropic", assurance: "self-reported" });
-    await addHeadphones(runtime);
-    expect(runtime.remy.getSnapshot().receipts[0].principal).toMatchObject({ id: "claude:demo", name: "Claude", assurance: "self-reported" });
+  it.each([
+    ["preview", "staged"],
+    ["ask", "awaiting_approval"],
+    ["reversible", "committed"],
+    ["trusted", "committed"],
+  ] as const)("applies %s mode to a recoverable action", async (autonomy, status) => {
+    runtime.remy.setControls({ autonomy, paused: false, grants: [] });
+    const result = await createReturn(runtime);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.status).toBe(status);
   });
 
-  it("stages requests for more access until the user approves", () => {
-    const request = runtime.remy.requestControlChange({ autonomy: "trusted", paused: false, grants: ["commerce.purchase"] });
+  it("records self-reported principal assurance explicitly", async () => {
+    runtime.remy.identifyPrincipal({
+      id: "claude:demo",
+      name: "Claude",
+      provider: "Anthropic",
+      assurance: "self-reported",
+    });
+    await createReturn(runtime);
+    expect(runtime.remy.getSnapshot().receipts[0].principal).toMatchObject({
+      id: "claude:demo",
+      name: "Claude",
+      assurance: "self-reported",
+    });
+  });
+
+  it("stages requests for trusted access until the user approves", () => {
+    const request = runtime.remy.requestControlChange({
+      autonomy: "trusted",
+      paused: false,
+      grants: [],
+    });
     expect(runtime.remy.getSnapshot().controls.autonomy).toBe("reversible");
-    expect(runtime.remy.getSnapshot().controls.grants).toEqual([]);
     expect(runtime.remy.approveControlChange(request.id)).toBe(true);
-    expect(runtime.remy.getSnapshot().controls.grants).toEqual(["commerce.purchase"]);
+    expect(runtime.remy.getSnapshot().controls.autonomy).toBe("trusted");
   });
 
-  it("invalidates a purchase approval when the bag changes", async () => {
-    await runToPurchase(runtime);
+  it("records rejection without changing the application", async () => {
+    runtime.remy.setAutonomy("ask");
+    const result = await createReturn(runtime);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(runtime.remy.reject(result.actionId).ok).toBe(true);
+    expect(runtime.store.getSnapshot().returnRequest.status).toBe("not_started");
+    expect(runtime.remy.getSnapshot().receipts[0].status).toBe("rejected");
+  });
+
+  it("invalidates refund approval after the protected resource changes", async () => {
+    await runToRefund(runtime);
     const pending = runtime.remy.getSnapshot().receipts.at(-1)!;
-    await runtime.remy.runByName("set_quantity", { productId: "morrow-one", quantity: 2 }, { actor: "user", transport: "manual" });
+    runtime.store.bumpVersion?.(RESOURCE_KEYS.refund);
     const result = await runtime.remy.approve(pending.id);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("STALE_APPROVAL");
-    expect(runtime.store.getSnapshot().order.status).toBe("not_placed");
+    expect(runtime.store.getSnapshot().returnRequest.refund.status).toBe("not_issued");
   });
 
   it("does not repeat a mutation with the same idempotency key", async () => {
-    const first = await runtime.remy.runByName("add_to_cart", { productId: "morrow-one", colour: "Charcoal", quantity: 1 }, { idempotencyKey: "same-add" });
-    const second = await runtime.remy.runByName("add_to_cart", { productId: "morrow-one", colour: "Oat", quantity: 2 }, { idempotencyKey: "same-add" });
+    const input = { orderId: "1842", itemIds: ["headphones", "case"] } as const;
+    const first = await runtime.remy.runByName("create_return", input, {
+      idempotencyKey: "same-return",
+    });
+    const second = await runtime.remy.runByName("create_return", input, {
+      idempotencyKey: "same-return",
+    });
     expect(first.ok && second.ok && second.actionId).toBe(first.ok && first.actionId);
-    expect(runtime.store.getSnapshot().cart.line?.colour).toBe("Charcoal");
     expect(runtime.remy.getSnapshot().receipts).toHaveLength(1);
   });
 
-  it("recovers an item addition with a linked append-only receipt", async () => {
-    await addHeadphones(runtime);
+  it("restores the collection address with a linked append-only receipt", async () => {
+    await runtime.remy.runByName("change_collection_address", {
+      orderId: "1842",
+      address: "22 New Road",
+    });
     const original = runtime.remy.getSnapshot().receipts[0];
     expect((await runtime.remy.revert(original.id)).ok).toBe(true);
     const receipts = runtime.remy.getSnapshot().receipts;
-    expect(runtime.store.getSnapshot().cart.line).toBeUndefined();
+    expect(runtime.store.getSnapshot().returnRequest.collectionAddress).toBe("14 High Street");
     expect(receipts).toHaveLength(2);
     expect(receipts[0].status).toBe("reverted");
     expect(receipts[1].reversesReceiptId).toBe(original.id);
   });
 
-  it("restores the previous delivery choice", async () => {
-    await addHeadphones(runtime);
-    await runtime.remy.runByName("choose_delivery", { method: "express" });
-    const delivery = runtime.remy.getSnapshot().receipts.at(-1)!;
-    await runtime.remy.revert(delivery.id);
-    expect(runtime.store.getSnapshot().cart.delivery).toBe("standard");
-    expect(runtime.remy.getSnapshot().receipts.at(-1)?.reversesReceiptId).toBe(delivery.id);
+  it("cancels a collection through compensation and keeps the booking receipt", async () => {
+    await runtime.remy.runByName("book_collection", {
+      orderId: "1842",
+      date: "next Friday",
+    });
+    const booking = runtime.remy.getSnapshot().receipts[0];
+    expect((await runtime.remy.revert(booking.id)).ok).toBe(true);
+    const receipts = runtime.remy.getSnapshot().receipts;
+    expect(runtime.store.getSnapshot().returnRequest.collection.status).toBe("cancelled");
+    expect(receipts[0].status).toBe("compensated");
+    expect(receipts[1].reversesReceiptId).toBe(booking.id);
   });
 
-  it("summarizes state-changing actions for developer tooling", async () => {
-    await addHeadphones(runtime);
-    await runtime.remy.runByName("choose_delivery", { method: "express" });
-    const delivery = runtime.remy.getSnapshot().receipts.at(-1)!;
-    await runtime.remy.runByName("apply_discount", { code: "HELLO10" });
-    await runtime.remy.runByName("prepare_checkout", {});
-    await runtime.remy.revert(delivery.id);
-    const purchase = await runtime.remy.runByName("place_order", {});
-    if (purchase.ok) await runtime.remy.approve(purchase.actionId);
-    expect(summarizeActionRun([...runtime.remy.getSnapshot().receipts])).toEqual({ changes: 4, automatic: 3, approvals: 1, recovered: 1, unresolved: 0 });
+  it("summarizes only the state-changing return actions", async () => {
+    await runToRefund(runtime);
+    const address = runtime.remy
+      .getSnapshot()
+      .receipts.find((receipt) => receipt.action.name === "change_collection_address")!;
+    await runtime.remy.revert(address.id);
+    const refund = runtime.remy.getSnapshot().receipts.find(
+      (receipt) => receipt.action.name === "issue_refund",
+    )!;
+    await runtime.remy.approve(refund.id);
+    expect(summarizeActionRun([...runtime.remy.getSnapshot().receipts])).toEqual({
+      changes: 5,
+      automatic: 4,
+      approvals: 1,
+      recovered: 1,
+      unresolved: 0,
+    });
   });
 
-  it("blocks unsafe recovery after a resource-version conflict", async () => {
-    await addHeadphones(runtime);
-    await runtime.remy.runByName("choose_delivery", { method: "express" });
-    const receipt = runtime.remy.getSnapshot().receipts.at(-1)!;
-    runtime.store.bumpVersion?.(RESOURCE_KEYS.delivery);
+  it("blocks recovery after a resource-version conflict", async () => {
+    await runtime.remy.runByName("change_collection_address", {
+      orderId: "1842",
+      address: "22 New Road",
+    });
+    const receipt = runtime.remy.getSnapshot().receipts[0];
+    runtime.store.bumpVersion?.(RESOURCE_KEYS.address);
     const result = await runtime.remy.revert(receipt.id);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("VERSION_CONFLICT");
-    expect(runtime.store.getSnapshot().cart.delivery).toBe("express");
+    expect(runtime.store.getSnapshot().returnRequest.collectionAddress).toBe("22 New Road");
   });
 
-  it("lets direct website interactions work under restrictive agent controls", async () => {
+  it("keeps direct website actions usable under restrictive agent controls", async () => {
     runtime.remy.setPaused(true);
-    const agentResult = await addHeadphones(runtime);
-    const userResult = await runtime.remy.runByName("add_to_cart", { productId: "morrow-one", colour: "Oat", quantity: 1 }, { actor: "user", transport: "manual" });
+    const agentResult = await createReturn(runtime);
+    const userResult = await runtime.remy.runByName(
+      "create_return",
+      { orderId: "1842", itemIds: ["headphones", "case"] },
+      { actor: "user", transport: "manual" },
+    );
     expect(agentResult.ok).toBe(false);
     expect(userResult.ok).toBe(true);
-    expect(runtime.store.getSnapshot().cart.line?.colour).toBe("Oat");
+    expect(runtime.store.getSnapshot().returnRequest.status).toBe("draft");
   });
 
-  it("returns actionable validation errors without storing raw input", async () => {
-    const result = await runtime.remy.runByName("add_to_cart", { productId: "morrow-one", colour: "Charcoal", quantity: 12, secret: "must-not-persist" });
+  it("returns validation errors without storing raw private input", async () => {
+    const result = await runtime.remy.runByName("change_collection_address", {
+      orderId: "1842",
+      address: "x",
+      secret: "must-not-persist",
+    });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.code).toBe("INVALID_INPUT");
     const receipt = runtime.remy.getSnapshot().receipts[0];
@@ -131,14 +200,26 @@ describe("Morrow demo on the generic Remy client", () => {
   });
 });
 
-function addHeadphones(runtime: ReturnType<typeof createDemoRuntime>) {
-  return runtime.remy.runByName("add_to_cart", { productId: "morrow-one", colour: "Charcoal", quantity: 1 });
+function createReturn(runtime: ReturnType<typeof createDemoRuntime>) {
+  return runtime.remy.runByName("create_return", {
+    orderId: "1842",
+    itemIds: ["headphones", "case"],
+  });
 }
 
-async function runToPurchase(runtime: ReturnType<typeof createDemoRuntime>) {
-  await addHeadphones(runtime);
-  await runtime.remy.runByName("choose_delivery", { method: "express" });
-  await runtime.remy.runByName("apply_discount", { code: "HELLO10" });
-  await runtime.remy.runByName("prepare_checkout", {});
-  return runtime.remy.runByName("place_order", {});
+async function runToRefund(runtime: ReturnType<typeof createDemoRuntime>) {
+  await createReturn(runtime);
+  await runtime.remy.runByName("add_return_reason", {
+    orderId: "1842",
+    reason: "Incompatible with my laptop",
+  });
+  await runtime.remy.runByName("change_collection_address", {
+    orderId: "1842",
+    address: "22 New Road",
+  });
+  await runtime.remy.runByName("book_collection", {
+    orderId: "1842",
+    date: "next Friday",
+  });
+  return runtime.remy.runByName("issue_refund", { orderId: "1842" });
 }

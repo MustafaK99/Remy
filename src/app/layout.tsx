@@ -8,17 +8,17 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: {
-    default: "Remy — permissions, approvals, receipts and recovery",
+    default: "Remy — control for AI agent actions",
     template: "%s · Remy",
   },
   description:
-    "An open-source TypeScript SDK that lets reversible agent actions run and pauses consequential actions for approval.",
+    "Open-source controls, human-readable receipts, and recovery for the actions AI agents take in your application.",
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f5f0e7",
+  themeColor: "#f3f1ea",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

@@ -21,21 +21,19 @@ type DemoRemyContextValue = {
   readonly remySnapshot: ReturnType<DemoRuntime["remy"]["getSnapshot"]>;
   readonly state: ReturnType<DemoRuntime["store"]["getSnapshot"]>;
   readonly controlMode: ControlMode;
-  readonly purchaseGrant: boolean;
   readonly lastError?: string;
   readonly approve: (actionId: string) => Promise<RunResult>;
   readonly reject: (actionId: string) => RunResult;
   readonly revert: (actionId: string) => Promise<RunResult>;
   readonly runUserAction: (name: string, input: unknown) => Promise<RunResult>;
   readonly setControlMode: (mode: ControlMode) => void;
-  readonly setPurchaseGrant: (allow: boolean) => void;
   readonly reset: () => void;
 };
 
 const DemoRemyContext = createContext<DemoRemyContextValue | null>(null);
 
 export function DemoRemyProvider({ children }: { readonly children: ReactNode }) {
-  const [runtime] = useState(() => createDemoRuntime({ persist: true }));
+  const [runtime] = useState(() => createDemoRuntime());
   const [lastError, setLastError] = useState<string>();
   const remySnapshot = useRemySnapshot(runtime.remy);
   const state = useSyncExternalStore(
@@ -56,8 +54,6 @@ export function DemoRemyProvider({ children }: { readonly children: ReactNode })
       : remySnapshot.controls.autonomy === "trusted"
         ? "full"
         : "safe";
-  const purchaseGrant = remySnapshot.controls.grants.includes("commerce.purchase");
-
   const approve = useCallback(async (actionId: string) => {
     const result = await runtime.remy.approve(actionId);
     if (!result.ok) setLastError(result.error);
@@ -97,28 +93,21 @@ export function DemoRemyProvider({ children }: { readonly children: ReactNode })
             ? "trusted"
             : "reversible",
       paused: false,
-      grants: mode === "full" ? runtime.remy.getSnapshot().controls.grants : [],
+      grants: runtime.remy.getSnapshot().controls.grants,
     });
   }, [runtime]);
-
-  const setPurchaseGrant = useCallback((allow: boolean) => {
-    if (controlMode !== "full") return;
-    runtime.remy.setGrant("commerce.purchase", allow);
-  }, [controlMode, runtime]);
 
   const value = useMemo<DemoRemyContextValue>(() => ({
     runtime,
     remySnapshot,
     state,
     controlMode,
-    purchaseGrant,
     lastError,
     approve,
     reject,
     revert,
     runUserAction,
     setControlMode,
-    setPurchaseGrant,
     reset: () => {
       runtime.reset();
       setLastError(undefined);
@@ -127,14 +116,12 @@ export function DemoRemyProvider({ children }: { readonly children: ReactNode })
     approve,
     controlMode,
     lastError,
-    purchaseGrant,
     reject,
     remySnapshot,
     revert,
     runUserAction,
     runtime,
     setControlMode,
-    setPurchaseGrant,
     state,
   ]);
 

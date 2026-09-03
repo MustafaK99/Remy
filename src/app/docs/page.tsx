@@ -11,7 +11,10 @@ export const metadata: Metadata = {
     "Define typed Remy actions, apply policy and recovery, and expose them through WebMCP.",
 };
 
-const installCommands = `npm install @remy-ai/core @remy-ai/webmcp`;
+const localCommands = `git clone https://github.com/MustafaK99/Remy.git
+cd Remy
+npm ci
+npm run dev`;
 
 const quickstartCode = `import { createRemy, succeed } from "@remy-ai/core"
 import { registerWebMCP } from "@remy-ai/webmcp"
@@ -255,7 +258,7 @@ export default function DocsPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="#quickstart" className="inline-flex h-11 items-center gap-2 bg-[#17241f] px-4 text-sm font-medium text-white hover:bg-[#294238]">
-              Install Remy <ArrowRight className="size-4" />
+              Start locally <ArrowRight className="size-4" />
             </Link>
             <a href="https://github.com/MustafaK99/Remy/blob/master/examples/minimal.ts" target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-[#17241f]/20 px-4 text-sm font-medium hover:border-[#17241f]/45">
               Complete example <ArrowRight className="size-4" />
@@ -264,11 +267,10 @@ export default function DocsPage() {
 
           <DocSection id="quickstart" number="01" title="Five-minute quickstart">
             <p>
-              Install the core and WebMCP adapter. The alpha tarballs are built
-              and verified; the public npm command becomes available when the
-              release owner completes the final publish step.
+              The packages are not on npm yet. Run the public repository with
+              Node 20+ and npm 10+; no environment variables are required.
             </p>
-            <CodeBlock value={installCommands} filename="Terminal" />
+            <CodeBlock value={localCommands} filename="Terminal" />
             <p className="mt-5">
               Create a client around the service your application already owns,
               wrap one function, register the action, then expose it through
@@ -417,7 +419,7 @@ export default function DocsPage() {
             </p>
             <CodeBlock value={reactCode} filename="Client component" />
             <p className="mt-5">
-              The Morrow drawer is demo UI, not a required Remy design. Agent
+              The return drawer is demo UI, not a required Remy design. Agent
               activity excludes ordinary user clicks; developer run summaries
               belong in developer tooling, not the end-user action panel.
             </p>
@@ -430,7 +432,7 @@ export default function DocsPage() {
             <p>
               The application and Remy have separate persistence boundaries.
               Remy stores schema-versioned semantic receipts and journal events;
-              the Morrow demo stores its fictional shop state separately.
+              the return demo stores its fictional order state separately.
             </p>
             <div className="mt-6 border-t border-[#17241f]/12">
               <DocRow name="Stored" detail="Action/version, IDs, bounded actor, decision, summary, allowlisted changes, resource versions, status, time, duration, error code, and recovery links." />
@@ -523,7 +525,7 @@ npm run verify:packages`} filename="Terminal" />
           <div className="mt-16 flex flex-col justify-between gap-6 border-t border-[#17241f]/12 pt-8 sm:flex-row sm:items-center">
             <div>
               <p className="font-medium">Ship agents users aren&apos;t afraid to trust.</p>
-              <p className="mt-1 text-sm text-[#747c76]">Try policy, approval, receipts, and recovery in the Morrow demo.</p>
+              <p className="mt-1 text-sm text-[#747c76]">Try policy, approval, receipts, and recovery in the return demo.</p>
             </div>
             <Link href="/demo" className="group inline-flex h-11 w-fit items-center gap-2 bg-[#17241f] px-4 text-sm font-medium text-white hover:bg-[#294238]">
               Open the live demo

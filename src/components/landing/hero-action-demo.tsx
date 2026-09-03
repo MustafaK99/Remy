@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { Check, CircleAlert, Eye, Hand, RotateCcw, ShieldCheck, Zap } from "lucide-react";
+import { Check, CircleAlert, Eye, RotateCcw } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { ActionReceipt, AutonomyLevel } from "@remy-ai/core";
 import { useRemySnapshot } from "@remy-ai/react";
@@ -9,10 +9,10 @@ import { AutonomySlider, type AutonomyOption } from "@/components/autonomy-slide
 import { createDocumentRuntime } from "@/landing/document-runtime";
 
 const modes: ReadonlyArray<AutonomyOption<AutonomyLevel>> = [
-  { value: "preview", label: "Preview only", shortLabel: "Preview", description: "Remy prepares each change without running it.", icon: Eye },
-  { value: "ask", label: "Ask on changes", shortLabel: "Ask", description: "Every state change waits for the user.", icon: Hand },
-  { value: "reversible", label: "Reversible actions", shortLabel: "Reversible", description: "Recoverable changes run. Publishing still waits.", icon: ShieldCheck },
-  { value: "trusted", label: "Trusted run", shortLabel: "Trusted", description: "Allowed work runs, while the publish hard stop still applies.", icon: Zap },
+  { value: "preview", label: "Preview", shortLabel: "Preview", description: "Remy prepares each change without running it." },
+  { value: "ask", label: "Ask on changes", shortLabel: "Ask", description: "Every state change waits for the user." },
+  { value: "reversible", label: "Reversible actions", shortLabel: "Reversible", description: "Recoverable changes run. Publishing still waits." },
+  { value: "trusted", label: "Trusted run", shortLabel: "Trusted", description: "Allowed work runs, while the publish hard stop still applies." },
 ];
 
 export function HeroActionDemo() {
@@ -46,13 +46,13 @@ export function HeroActionDemo() {
   const selected = receipts.find((receipt) => receipt.id === selectedId) ?? receipts[0];
   const awaitingPublish = receipts.find((receipt) => receipt.action.name === "publish_document" && receipt.status === "awaiting_approval");
   const approvedPublish = receipts.find((receipt) => receipt.action.name === "publish_document" && receipt.status === "committed");
-  const scenarioCopy = approvedPublish
-    ? { description: "The user approved publishing after reviewing the receipt.", proof: "3 actions · 2 automatic · 1 approved" }
+  const scenarioDescription = approvedPublish
+    ? "The user approved publishing after reviewing the receipt."
     : mode === "preview"
-    ? { description: "Three changes are prepared. Nothing has run.", proof: "3 actions · 3 previews · 0 ran" }
+    ? "Three changes are prepared. Nothing has run."
     : mode === "ask"
-      ? { description: "Every document change is waiting for the user.", proof: "3 actions · 0 automatic · 3 approvals" }
-      : { description: "Two recoverable changes ran. Publishing is waiting.", proof: "3 actions · 2 automatic · 1 approval" };
+      ? "Every document change is waiting for the user."
+      : "Two recoverable changes ran. Publishing is waiting.";
 
   async function recover(receipt: ActionReceipt) {
     setBusy(true);
@@ -71,26 +71,22 @@ export function HeroActionDemo() {
 
   return (
     <section
-      id="product"
       data-testid="document-action-demo"
-      className="overflow-hidden rounded-[12px] border border-[var(--line-strong)] bg-white text-[var(--ink)]"
+      className="overflow-hidden rounded-[2px] border border-[var(--line-strong)] bg-white text-[var(--ink)]"
     >
       <header className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
         <div>
           <p className="text-sm font-semibold tracking-[-0.02em]">Document actions</p>
-          <p className="mt-1 text-xs text-[var(--muted)]">{scenarioCopy.description}</p>
+          <p className="mt-1 text-xs text-[var(--muted)]">{scenarioDescription}</p>
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-xs font-semibold text-[var(--ink-soft)]">{scenarioCopy.proof}</span>
-          <button
-            type="button"
-            onClick={() => void runScenario("reversible")}
-            disabled={busy}
-            className="min-h-11 cursor-pointer px-2 text-xs font-semibold text-[var(--muted)] transition-colors hover:text-[var(--ink)] disabled:cursor-wait disabled:opacity-50"
-          >
-            Reset
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => void runScenario("reversible")}
+          disabled={busy}
+          className="min-h-11 cursor-pointer px-2 text-xs font-semibold text-[var(--muted)] transition-colors hover:text-[var(--ink)] disabled:cursor-wait disabled:opacity-50"
+        >
+          Reset
+        </button>
       </header>
 
       <div className="border-b border-[var(--line)] bg-[var(--paper-muted)] px-5 py-5 sm:px-7">
@@ -146,7 +142,7 @@ function StateValue({ label, value }: { readonly label: string; readonly value: 
 function receiptStatus(receipt: ActionReceipt) {
   if (receipt.reversesReceiptId) return { label: "Recovery recorded", tone: "success" };
   if (receipt.status === "awaiting_approval") return { label: "Waiting for you", tone: "warning" };
-  if (receipt.status === "staged") return { label: "Preview only", tone: "neutral" };
+  if (receipt.status === "staged") return { label: "Previewed", tone: "neutral" };
   if (receipt.status === "reverted" || receipt.status === "compensated") return { label: "Recovered", tone: "success" };
   if (receipt.status === "committed" && receipt.action.recovery === "irreversible") return { label: "Approved", tone: "success" };
   if (receipt.status === "committed") return { label: "Ran automatically", tone: "success" };

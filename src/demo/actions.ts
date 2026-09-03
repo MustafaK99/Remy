@@ -1,18 +1,9 @@
 import { z } from "zod";
 import { succeed, type ActionReceipt, type RemyClient } from "@remy-ai/core";
-import {
-  RESOURCE_KEYS,
-  getCartTotal,
-  getDeliveryCost,
-  getDiscount,
-  getSubtotal,
-  type CartLine,
-  type DemoState,
-} from "./data";
+import { RESOURCE_KEYS, type DemoState } from "./data";
 import type { DemoStore } from "./store";
 
-const emptyInput = z.strictObject({});
-const productInput = z.strictObject({ productId: z.literal("morrow-one") });
+const orderInput = z.strictObject({ orderId: z.literal("1842") });
 
 function updateState(
   store: DemoStore,
@@ -32,399 +23,323 @@ function change(
 }
 
 export function registerDemoActions(remy: RemyClient<DemoStore>) {
-  const getProduct = remy.defineAction({
-    name: "get_product",
-    title: "Read product details",
+  const getOrder = remy.defineAction({
+    name: "get_order",
+    title: "Read order #1842",
     description:
-      "Read the price, colours, and availability for Morrow One. This does not change the shop.",
+      "Read the items, payment method, and return status for order #1842. This changes nothing.",
     kind: "read",
-    input: productInput,
-    preview: () => ({
-      summary: "Read the Morrow One product details.",
-      changes: [],
-    }),
+    input: orderInput,
+    preview: () => ({ summary: "Read order #1842.", changes: [] }),
     execute: ({ context }) =>
       succeed({
-        ...context.getSnapshot().product,
-        colours: ["Charcoal", "Oat"] as const,
-        inStock: true,
+        order: context.getSnapshot().order,
+        returnRequest: context.getSnapshot().returnRequest,
       }),
-    exposeOutput: (output) => output,
-    redactInput: ({ productId }) => ({ productId }),
-  });
-
-  const getCart = remy.defineAction({
-    name: "get_cart",
-    title: "Read shopping bag",
-    description:
-      "Read the current bag, delivery choice, discount, and authoritative total. This does not change the shop.",
-    kind: "read",
-    input: emptyInput,
-    preview: () => ({ summary: "Read the current shopping bag.", changes: [] }),
-    execute: ({ context }) => {
-      const state = context.getSnapshot();
-      return succeed({
-        item: state.cart.line,
-        delivery: state.cart.delivery,
-        discountCode: state.cart.discount?.code,
-        total: getCartTotal(state),
-      });
-    },
+    redactInput: ({ orderId }) => ({ orderId }),
     exposeOutput: (output) => output,
   });
 
-  const addToCart = remy.defineAction({
-    name: "add_to_cart",
-    title: "Added Morrow One to bag",
+  const createReturn = remy.defineAction({
+    name: "create_return",
+    title: "Return created",
     description:
-      "Add Morrow One to the shopping bag in the selected colour and quantity. This has exact recovery.",
+      "Create a return for selected items. The draft can be removed exactly.",
     kind: "write",
     input: z.strictObject({
-      productId: z.literal("morrow-one"),
-      colour: z.enum(["Charcoal", "Oat"]),
-      quantity: z.number().int().min(1).max(3),
+      orderId: z.literal("1842"),
+      itemIds: z.array(z.enum(["headphones", "case"])).min(1).max(2),
     }),
     risk: "low",
     preview: ({ input, context }) => {
-      const state = context.getSnapshot();
-      const before = state.cart.line;
+      const before = context.getSnapshot().returnRequest;
       return {
-        summary: `Add ${input.quantity} Morrow One in ${input.colour} to the bag.`,
-        resources: [RESOURCE_KEYS.cart],
+        summary: `Create a return for ${input.itemIds.length} items.`,
+        resources: [RESOURCE_KEYS.returnDraft],
         changes: [
-          change(
-            "Shopping bag",
-            "cart.line",
-            before ? `${before.quantity} × ${before.name} · ${before.colour}` : "Empty",
-            `${input.quantity} × Morrow One · ${input.colour}`,
-            before ? "replace" : "add",
-          ),
+          change("Return", "return.status", "Not started", "Draft created", "add"),
         ],
-        recovery: { line: before },
-      };
-    },
-    execute: ({ input, context }) => {
-      const state = context.getSnapshot();
-      const line: CartLine = {
-        productId: "morrow-one",
-        name: state.product.name,
-        price: state.product.price,
-        colour: input.colour,
-        quantity: input.quantity,
-      };
-      updateState(context, (current) => ({
-        ...current,
-        cart: { ...current.cart, line },
-      }));
-      return succeed({ item: line, total: getCartTotal(context.getSnapshot()) });
-    },
-    recovery: {
-      kind: "exact",
-      execute: ({ receipt, context }) => {
-        updateState(context, (state) => ({
-          ...state,
-          cart: { ...state.cart, line: receipt.recovery.line },
-        }));
-        return succeed({ item: receipt.recovery.line });
-      },
-    },
-    redactInput: ({ productId, colour, quantity }) => ({ productId, colour, quantity }),
-    exposeOutput: (output) => output,
-  });
-
-  const removeFromCart = remy.defineAction({
-    name: "remove_from_cart",
-    title: "Removed Morrow One from bag",
-    description:
-      "Remove Morrow One from the shopping bag. This has exact recovery.",
-    kind: "write",
-    input: productInput,
-    risk: "low",
-    preview: ({ context }) => {
-      const state = context.getSnapshot();
-      if (!state.cart.line) throw new Error("Morrow One is not in the bag.");
-      return {
-        summary: "Remove Morrow One from the shopping bag.",
-        resources: [RESOURCE_KEYS.cart, RESOURCE_KEYS.discount],
-        changes: [
-          change(
-            "Shopping bag",
-            "cart.line",
-            `${state.cart.line.quantity} × ${state.cart.line.name}`,
-            "Empty",
-            "remove",
-          ),
-        ],
-        recovery: { line: state.cart.line, discount: state.cart.discount },
-      };
-    },
-    execute: ({ context }) => {
-      updateState(context, (state) => ({
-        ...state,
-        cart: { ...state.cart, line: undefined, discount: undefined },
-      }));
-      return succeed({ removed: true });
-    },
-    recovery: {
-      kind: "exact",
-      execute: ({ receipt, context }) => {
-        updateState(context, (state) => ({
-          ...state,
-          cart: {
-            ...state.cart,
-            line: receipt.recovery.line,
-            discount: receipt.recovery.discount,
-          },
-        }));
-        return succeed({ item: receipt.recovery.line });
-      },
-    },
-    redactInput: ({ productId }) => ({ productId }),
-    exposeOutput: (output) => output,
-  });
-
-  const setQuantity = remy.defineAction({
-    name: "set_quantity",
-    title: "Changed bag quantity",
-    description:
-      "Set the quantity of Morrow One in the bag. This has exact recovery.",
-    kind: "write",
-    input: z.strictObject({
-      productId: z.literal("morrow-one"),
-      quantity: z.number().int().min(1).max(3),
-    }),
-    risk: "low",
-    preview: ({ input, context }) => {
-      const before = context.getSnapshot().cart.line?.quantity;
-      if (!before) throw new Error("Add Morrow One before changing its quantity.");
-      return {
-        summary: `Change the bag quantity from ${before} to ${input.quantity}.`,
-        resources: [RESOURCE_KEYS.cart],
-        changes: [change("Quantity", "cart.line.quantity", before, input.quantity)],
-        recovery: { quantity: before },
+        recovery: {
+          status: before.status,
+          itemIds: [...before.itemIds],
+          id: before.id,
+        },
       };
     },
     execute: ({ input, context }) => {
       updateState(context, (state) => ({
         ...state,
-        cart: {
-          ...state.cart,
-          line: state.cart.line
-            ? { ...state.cart.line, quantity: input.quantity }
-            : undefined,
+        returnRequest: {
+          ...state.returnRequest,
+          id: "RET-1842",
+          status: "draft",
+          itemIds: [...input.itemIds],
         },
       }));
-      return succeed({ quantity: input.quantity, total: getCartTotal(context.getSnapshot()) });
+      return succeed({ returnId: "RET-1842", itemIds: input.itemIds });
     },
     recovery: {
       kind: "exact",
       execute: ({ receipt, context }) => {
         updateState(context, (state) => ({
           ...state,
-          cart: {
-            ...state.cart,
-            line: state.cart.line
-              ? { ...state.cart.line, quantity: receipt.recovery.quantity }
-              : undefined,
+          returnRequest: {
+            ...state.returnRequest,
+            id: receipt.recovery.id,
+            status: receipt.recovery.status,
+            itemIds: receipt.recovery.itemIds,
           },
         }));
-        return succeed({ quantity: receipt.recovery.quantity });
+        return succeed({ status: receipt.recovery.status });
       },
     },
-    redactInput: ({ productId, quantity }) => ({ productId, quantity }),
+    redactInput: ({ orderId, itemIds }) => ({
+      orderId,
+      itemCount: itemIds.length,
+    }),
     exposeOutput: (output) => output,
   });
 
-  const chooseDelivery = remy.defineAction({
-    name: "choose_delivery",
-    title: "Changed delivery",
+  const addReturnReason = remy.defineAction({
+    name: "add_return_reason",
+    title: "Return reason added",
     description:
-      "Choose standard or express delivery for the current bag. This has exact recovery.",
+      "Add a short reason to the return. The previous value can be restored exactly.",
     kind: "write",
-    input: z.strictObject({ method: z.enum(["standard", "express"]) }),
+    input: z.strictObject({
+      orderId: z.literal("1842"),
+      reason: z.string().min(3).max(160),
+    }),
     risk: "low",
-    preview: ({ input, context }) => {
-      const state = context.getSnapshot();
-      if (!state.cart.line) throw new Error("Add an item before choosing delivery.");
-      const before = state.cart.delivery;
-      const display = (method: "standard" | "express") =>
-        method === "express" ? "Express · £8" : "Standard · Free";
-      return {
-        summary: `Choose ${input.method} delivery.`,
-        resources: [RESOURCE_KEYS.delivery],
-        changes: [change("Delivery", "cart.delivery", display(before), display(input.method))],
-        recovery: { method: before },
-      };
-    },
+    preview: ({ input, context }) => ({
+      summary: `Set the return reason to “${input.reason}”.`,
+      resources: [RESOURCE_KEYS.returnReason],
+      changes: [
+        change(
+          "Return reason",
+          "return.reason",
+          context.getSnapshot().returnRequest.reason ?? "Not set",
+          input.reason,
+          "add",
+        ),
+      ],
+      recovery: { reason: context.getSnapshot().returnRequest.reason },
+    }),
     execute: ({ input, context }) => {
       updateState(context, (state) => ({
         ...state,
-        cart: { ...state.cart, delivery: input.method },
+        returnRequest: { ...state.returnRequest, reason: input.reason },
       }));
-      return succeed({ method: input.method, cost: getDeliveryCost(context.getSnapshot()) });
+      return succeed({ reason: input.reason });
     },
     recovery: {
       kind: "exact",
       execute: ({ receipt, context }) => {
         updateState(context, (state) => ({
           ...state,
-          cart: { ...state.cart, delivery: receipt.recovery.method },
+          returnRequest: {
+            ...state.returnRequest,
+            reason: receipt.recovery.reason,
+          },
         }));
-        return succeed({ method: receipt.recovery.method });
+        return succeed({ reason: receipt.recovery.reason });
       },
     },
-    redactInput: ({ method }) => ({ method }),
+    redactInput: ({ orderId, reason }) => ({ orderId, reason }),
     exposeOutput: (output) => output,
   });
 
-  const applyDiscount = remy.defineAction({
-    name: "apply_discount",
-    title: "Applied 10% discount",
+  const changeCollectionAddress = remy.defineAction({
+    name: "change_collection_address",
+    title: "Collection address changed",
     description:
-      "Apply the HELLO10 discount code to the current bag. This has exact recovery.",
+      "Change the return collection address. The previous address can be restored exactly.",
     kind: "write",
-    input: z.strictObject({ code: z.literal("HELLO10") }),
-    risk: "low",
+    input: z.strictObject({
+      orderId: z.literal("1842"),
+      address: z.string().min(5).max(120),
+    }),
+    risk: "medium",
     preview: ({ input, context }) => {
-      const state = context.getSnapshot();
-      if (!state.cart.line) throw new Error("Add an item before applying a discount.");
+      const before = context.getSnapshot().returnRequest.collectionAddress;
       return {
-        summary: `Apply ${input.code} for 10% off.`,
-        resources: [RESOURCE_KEYS.discount],
+        summary: `Change the collection address from ${before} to ${input.address}.`,
+        resources: [RESOURCE_KEYS.address],
         changes: [
           change(
-            "Discount",
-            "cart.discount",
-            state.cart.discount?.code ?? "None",
-            `${input.code} · 10% off`,
-            state.cart.discount ? "replace" : "add",
+            "Collection address",
+            "return.collectionAddress",
+            before,
+            input.address,
           ),
         ],
-        recovery: { discount: state.cart.discount },
+        recovery: { address: before },
       };
     },
     execute: ({ input, context }) => {
       updateState(context, (state) => ({
         ...state,
-        cart: { ...state.cart, discount: { code: input.code } },
+        returnRequest: {
+          ...state.returnRequest,
+          collectionAddress: input.address,
+        },
       }));
-      return succeed({
-        code: input.code,
-        amountSaved: getDiscount(context.getSnapshot()),
-        total: getCartTotal(context.getSnapshot()),
-      });
+      return succeed({ collectionAddress: input.address });
     },
     recovery: {
       kind: "exact",
       execute: ({ receipt, context }) => {
         updateState(context, (state) => ({
           ...state,
-          cart: { ...state.cart, discount: receipt.recovery.discount },
+          returnRequest: {
+            ...state.returnRequest,
+            collectionAddress: receipt.recovery.address,
+          },
         }));
-        return succeed({ discount: receipt.recovery.discount });
+        return succeed({ collectionAddress: receipt.recovery.address });
       },
     },
-    redactInput: ({ code }) => ({ code }),
+    redactInput: ({ orderId, address }) => ({ orderId, address }),
     exposeOutput: (output) => output,
   });
 
-  const prepareCheckout = remy.defineAction({
-    name: "prepare_checkout",
-    title: "Read checkout total",
+  const bookCollection = remy.defineAction({
+    name: "book_collection",
+    title: "Collection booked",
     description:
-      "Read the authoritative checkout total and destination. This does not place an order.",
-    kind: "read",
-    input: emptyInput,
-    preview: ({ context }) => ({
-      summary: `Prepare a £${getCartTotal(context.getSnapshot())} checkout preview.`,
-      changes: [],
+      "Book a courier collection. Recovery is a new cancellation rather than an exact undo.",
+    kind: "write",
+    input: z.strictObject({
+      orderId: z.literal("1842"),
+      date: z.string().min(3).max(40),
     }),
-    execute: ({ context }) => {
-      const state = context.getSnapshot();
-      if (!state.cart.line) throw new Error("The shopping bag is empty.");
+    risk: "medium",
+    preview: ({ input, context }) => ({
+      summary: `Book collection ${input.date} from ${context.getSnapshot().returnRequest.collectionAddress}.`,
+      resources: [RESOURCE_KEYS.collection],
+      changes: [
+        change(
+          "Collection",
+          "return.collection.status",
+          "Not booked",
+          `${input.date} · ${context.getSnapshot().returnRequest.collectionAddress}`,
+          "add",
+        ),
+      ],
+      recovery: { date: input.date },
+    }),
+    execute: ({ input, context }) => {
+      updateState(context, (state) => ({
+        ...state,
+        returnRequest: {
+          ...state.returnRequest,
+          collection: {
+            status: "booked",
+            date: input.date,
+            bookingId: "COL-7F4A",
+          },
+        },
+      }));
       return succeed({
-        subtotal: getSubtotal(state),
-        delivery: getDeliveryCost(state),
-        discount: getDiscount(state),
-        total: getCartTotal(state),
-        paymentMethod: state.customer.paymentMethod,
-        deliveryAddress: state.customer.deliveryAddress,
+        bookingId: "COL-7F4A",
+        status: "booked" as const,
+        date: input.date,
       });
     },
+    recovery: {
+      kind: "compensating",
+      automatic: true,
+      execute: ({ context }) => {
+        updateState(context, (state) => ({
+          ...state,
+          returnRequest: {
+            ...state.returnRequest,
+            collection: {
+              ...state.returnRequest.collection,
+              status: "cancelled",
+            },
+          },
+        }));
+        return succeed({
+          bookingId: "COL-7F4A",
+          status: "cancelled" as const,
+        });
+      },
+    },
+    redactInput: ({ orderId, date }) => ({ orderId, date }),
     exposeOutput: (output) => output,
   });
 
-  const placeOrder = remy.defineAction({
-    name: "place_order",
-    title: "Place the order",
+  const issueRefund = remy.defineAction({
+    name: "issue_refund",
+    title: "Refund £84",
     description:
-      "Place the order and charge the saved payment method. This is irreversible and requires the commerce.purchase grant for unattended execution.",
+      "Issue an £84 refund to the original payment method. This cannot be undone.",
     kind: "write",
-    input: emptyInput,
+    input: orderInput,
     risk: "high",
-    requiredGrants: ["commerce.purchase"],
-    preview: ({ context }) => {
-      const state = context.getSnapshot();
-      if (!state.cart.line) throw new Error("The shopping bag is empty.");
-      if (state.order.status === "placed") throw new Error("This order is already placed.");
-      const total = getCartTotal(state);
-      return {
-        summary: `Place the order for £${total}.`,
-        resources: [
-          RESOURCE_KEYS.cart,
-          RESOURCE_KEYS.delivery,
-          RESOURCE_KEYS.discount,
-          RESOURCE_KEYS.order,
-        ],
-        changes: [change("Purchase", "order.status", "Not purchased", `Charge £${total}`, "status")],
-        details: {
-          Item: `${state.cart.line.quantity} × ${state.cart.line.name}`,
-          Total: `£${total}`,
-          Payment: state.customer.paymentMethod,
-          Delivery: state.customer.deliveryAddress,
-        },
-      };
-    },
+    preview: ({ context }) => ({
+      summary: `Refund £84 to ${context.getSnapshot().order.paymentMethod}.`,
+      resources: [RESOURCE_KEYS.refund],
+      changes: [
+        change(
+          "Refund",
+          "return.refund.status",
+          "Not issued",
+          "£84 issued",
+          "status",
+        ),
+      ],
+      details: {
+        Amount: "£84",
+        Destination: context.getSnapshot().order.paymentMethod,
+        Order: "#1842",
+      },
+    }),
     execute: ({ context }) => {
-      const state = context.getSnapshot();
-      if (!state.cart.line) throw new Error("The shopping bag is empty.");
-      if (state.order.status === "placed") throw new Error("This order is already placed.");
-      const total = getCartTotal(state);
-      updateState(context, (current) => ({
-        ...current,
-        order: { status: "placed", id: "MO-2048" },
+      if (context.getSnapshot().returnRequest.refund.status === "issued") {
+        throw new Error("The refund has already been issued.");
+      }
+      updateState(context, (state) => ({
+        ...state,
+        returnRequest: {
+          ...state.returnRequest,
+          status: "complete",
+          refund: {
+            ...state.returnRequest.refund,
+            status: "issued",
+            refundId: "RF-1842",
+          },
+        },
       }));
-      return succeed({ orderId: "MO-2048", status: "placed" as const, total });
+      return succeed({
+        refundId: "RF-1842",
+        amount: 84,
+        status: "issued" as const,
+      });
     },
     recovery: { kind: "irreversible" },
+    redactInput: ({ orderId }) => ({ orderId }),
     exposeOutput: (output) => output,
   });
 
   const actions = {
-    getProduct,
-    getCart,
-    addToCart,
-    removeFromCart,
-    setQuantity,
-    chooseDelivery,
-    applyDiscount,
-    prepareCheckout,
-    placeOrder,
+    getOrder,
+    createReturn,
+    addReturnReason,
+    changeCollectionAddress,
+    bookCollection,
+    issueRefund,
   } as const;
-  remy.register(getProduct);
-  remy.register(getCart);
-  remy.register(addToCart);
-  remy.register(removeFromCart);
-  remy.register(setQuantity);
-  remy.register(chooseDelivery);
-  remy.register(applyDiscount);
-  remy.register(prepareCheckout);
-  remy.register(placeOrder);
+  remy.register(getOrder);
+  remy.register(createReturn);
+  remy.register(addReturnReason);
+  remy.register(changeCollectionAddress);
+  remy.register(bookCollection);
+  remy.register(issueRefund);
   return actions;
 }
 
-export function isCartReceipt(receipt: ActionReceipt) {
-  return ["add_to_cart", "remove_from_cart", "set_quantity"].includes(
-    receipt.action.name,
-  );
+export function isAddressReceipt(receipt: ActionReceipt) {
+  return receipt.action.name === "change_collection_address";
 }

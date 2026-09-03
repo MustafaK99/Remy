@@ -1,88 +1,79 @@
-export type ProductColour = "Charcoal" | "Oat";
-export type DeliveryMethod = "standard" | "express";
-
-export type CartLine = {
-  productId: "morrow-one";
-  name: string;
-  price: number;
-  colour: ProductColour;
-  quantity: number;
-};
-
 export type DemoState = {
-  product: {
-    id: "morrow-one";
-    name: string;
-    price: number;
-    description: string;
+  readonly order: {
+    readonly id: "1842";
+    readonly status: "delivered";
+    readonly deliveredAt: string;
+    readonly items: ReadonlyArray<{
+      readonly id: "headphones" | "case";
+      readonly name: string;
+      readonly detail: string;
+      readonly price: number;
+    }>;
+    readonly paymentMethod: string;
   };
-  cart: {
-    line?: CartLine;
-    delivery: DeliveryMethod;
-    discount?: { code: "HELLO10" };
+  readonly returnRequest: {
+    readonly id?: "RET-1842";
+    readonly status: "not_started" | "draft" | "complete";
+    readonly itemIds: ReadonlyArray<"headphones" | "case">;
+    readonly reason?: string;
+    readonly collectionAddress: string;
+    readonly collection: {
+      readonly status: "not_booked" | "booked" | "cancelled";
+      readonly date?: string;
+      readonly bookingId?: string;
+    };
+    readonly refund: {
+      readonly status: "not_issued" | "issued";
+      readonly amount: 84;
+      readonly refundId?: string;
+    };
   };
-  customer: {
-    deliveryAddress: string;
-    paymentMethod: string;
-  };
-  order: {
-    status: "not_placed" | "placed";
-    id?: string;
-  };
-  versions: Record<string, number>;
+  readonly versions: Readonly<Record<string, number>>;
 };
 
 export const RESOURCE_KEYS = {
-  cart: "cart:morrow-one",
-  quantity: "cart:morrow-one:quantity",
-  delivery: "cart:delivery",
-  discount: "cart:discount",
-  order: "order:checkout",
+  returnDraft: "return:1842:draft",
+  returnReason: "return:1842:reason",
+  address: "return:1842:address",
+  collection: "return:1842:collection",
+  refund: "return:1842:refund",
 } as const;
 
 export function createInitialDemoState(): DemoState {
   return {
-    product: {
-      id: "morrow-one",
-      name: "Morrow One",
-      price: 128,
-      description:
-        "Soft-cushion wireless headphones with 40-hour battery life and a canvas travel case.",
-    },
-    cart: {
-      delivery: "standard",
-    },
-    customer: {
-      deliveryAddress: "14 High Street, London",
+    order: {
+      id: "1842",
+      status: "delivered",
+      deliveredAt: "28 August 2026",
+      items: [
+        {
+          id: "headphones",
+          name: "Morrow One headphones",
+          detail: "Charcoal",
+          price: 64,
+        },
+        {
+          id: "case",
+          name: "Canvas travel case",
+          detail: "Olive",
+          price: 20,
+        },
+      ],
       paymentMethod: "Visa ending 4242",
     },
-    order: {
-      status: "not_placed",
+    returnRequest: {
+      status: "not_started",
+      itemIds: [],
+      collectionAddress: "14 High Street",
+      collection: { status: "not_booked" },
+      refund: { status: "not_issued", amount: 84 },
     },
     versions: {
-      [RESOURCE_KEYS.cart]: 1,
-      [RESOURCE_KEYS.quantity]: 1,
-      [RESOURCE_KEYS.delivery]: 1,
-      [RESOURCE_KEYS.discount]: 1,
-      [RESOURCE_KEYS.order]: 1,
+      [RESOURCE_KEYS.returnDraft]: 1,
+      [RESOURCE_KEYS.returnReason]: 1,
+      [RESOURCE_KEYS.address]: 1,
+      [RESOURCE_KEYS.collection]: 1,
+      [RESOURCE_KEYS.refund]: 1,
     },
   };
-}
-
-export function getSubtotal(state: DemoState) {
-  return state.cart.line
-    ? state.cart.line.price * state.cart.line.quantity
-    : 0;
-}
-
-export function getDeliveryCost(state: DemoState) {
-  return state.cart.line && state.cart.delivery === "express" ? 8 : 0;
-}
-
-export function getDiscount(state: DemoState) {
-  return state.cart.discount ? Math.round(getSubtotal(state) * 0.1) : 0;
-}
-
-export function getCartTotal(state: DemoState) {
-  return getSubtotal(state) + getDeliveryCost(state) - getDiscount(state);
 }

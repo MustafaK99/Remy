@@ -18,7 +18,7 @@ export function createDemoRuntime(options: {
 } = {}) {
   const store = createDemoStore();
   const journal = options.persist
-    ? createBrowserJournalStore({ namespace: "remy:morrow-demo" })
+    ? createBrowserJournalStore({ namespace: "remy:return-demo" })
     : createMemoryJournalStore();
   const remy = createRemy({
     context: () => store,
@@ -27,8 +27,8 @@ export function createDemoRuntime(options: {
     policy: options.policy,
     clock: options.clock,
     idGenerator: options.idGenerator,
-    defaultRunId: "morrow-demo-run",
-    defaultTaskId: "morrow-checkout",
+    defaultRunId: "return-demo-run",
+    defaultTaskId: "return-order-1842",
     controls: { autonomy: "reversible", paused: false, grants: [] },
   });
   const actions = registerDemoActions(remy);

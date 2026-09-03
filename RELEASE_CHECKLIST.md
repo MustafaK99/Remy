@@ -25,7 +25,7 @@
 - [ ] Review tracked files and the secret scan; do not publish local environment files or private data.
 - [ ] Push the release commit and wait for the CI status check to pass.
 - [ ] Add the recommended repository description and topics.
-- [ ] Change repository visibility to public manually.
+- [x] Repository visibility is public (verified through the GitHub API).
 - [ ] Create tag `v0.1.0-alpha` from the verified commit.
 - [ ] Create a GitHub prerelease using `RELEASE_NOTES_v0.1.0-alpha.md`.
 
@@ -34,3 +34,10 @@
 - [ ] Remove the npm-publication-pending note only after the registry install succeeds.
 - [ ] Add the real npm package links after publication.
 - [ ] Confirm the demo and documentation deployment URLs.
+
+## Deployment
+
+- [ ] Connect the repository to Vercel (no local Vercel project or credentials are currently configured).
+- [ ] Use the repository root, Node.js 20+, `npm run build`, and the default Next.js output.
+- [ ] Verify `/`, `/demo`, `/demo?judge=1`, and `/docs` on the HTTPS production origin.
+- [ ] Run the browser smoke test with `REMY_BASE_URL` set to the HTTPS production origin.

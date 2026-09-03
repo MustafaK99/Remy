@@ -1,22 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f7f7f4;
+  --paper: #f3f1ea;
   --paper-strong: #ffffff;
-  --paper-muted: #efefeb;
-  --ink: #171a18;
-  --ink-soft: #3f4743;
-  --muted: #69716d;
-  --line: rgba(23, 26, 24, 0.12);
-  --line-strong: rgba(23, 26, 24, 0.24);
-  --accent: #ed5b35;
-  --accent-hover: #c94525;
-  --accent-soft: #ffded4;
-  --success: #247358;
-  --success-soft: #dceee5;
-  --warning: #a3442d;
-  --warning-soft: #f9ddd4;
-  --code: #141816;
+  --paper-muted: #e9e5db;
+  --ink: #171713;
+  --ink-soft: #3e3d37;
+  --muted: #6c6960;
+  --line: #d3cec1;
+  --line-strong: #aaa498;
+  --accent: #e85d28;
+  --accent-hover: #bd4318;
+  --accent-soft: #f8d8cb;
+  --success: #3f6f5b;
+  --success-soft: #dce7df;
+  --warning: #93422f;
+  --warning-soft: #f0d9d2;
+  --code: #171713;
   --background: var(--paper);
   --foreground: var(--ink);
   --section-space: clamp(4.75rem, 8vw, 8rem);
@@ -135,8 +135,7 @@ input:focus-visible {
 .autonomy-slider__control {
   position: relative;
   min-height: 44px;
-  margin-top: 0.5rem;
-  border-radius: 8px;
+  margin-top: 0.45rem;
 }
 
 .autonomy-slider__control:focus-within {
@@ -148,9 +147,9 @@ input:focus-visible {
   position: absolute;
   inset-inline: 12.5%;
   top: 50%;
-  height: 3px;
+  height: 2px;
   transform: translateY(-50%);
-  background: color-mix(in srgb, var(--ink) 22%, transparent);
+  background: color-mix(in srgb, var(--ink) 24%, transparent);
 }
 
 .autonomy-slider__fill {
@@ -168,9 +167,10 @@ input:focus-visible {
 }
 
 .autonomy-slider__stop {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border: 2px solid var(--paper-strong);
+  border-radius: 999px;
   background: color-mix(in srgb, var(--ink) 42%, var(--paper));
 }
 
@@ -179,13 +179,12 @@ input:focus-visible {
 }
 
 .autonomy-slider__thumb {
-  display: grid;
-  width: 27px;
-  height: 27px;
-  place-items: center;
+  width: 24px;
+  height: 24px;
   border: 2px solid var(--ink);
+  border-radius: 999px;
   background: var(--paper-strong);
-  color: var(--ink);
+  box-shadow: 0 1px 0 rgb(23 23 19 / 12%);
 }
 
 .autonomy-slider__input {
@@ -207,7 +206,7 @@ input:focus-visible {
 .autonomy-slider__label {
   min-height: 44px;
   cursor: pointer;
-  padding: 0.3rem;
+  padding: 0.25rem;
   color: var(--muted);
   font-size: 0.6875rem;
   font-weight: 650;
