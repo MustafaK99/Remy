@@ -19,7 +19,7 @@ describe("Morrow demo on the generic Remy client", () => {
     expect(state.cart.discount?.code).toBe("HELLO10");
     expect(state.order.status).toBe("not_placed");
     expect(receipts.at(-1)?.status).toBe("awaiting_approval");
-    expect(receipts.at(-1)?.action.title).toBe("Place the order");
+    expect(receipts.at(-1)?.action.title).toBe("Place the demo order");
   });
 
   it("uses authoritative cart state when the purchase is approved", async () => {

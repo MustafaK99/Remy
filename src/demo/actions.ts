@@ -356,9 +356,9 @@ export function registerDemoActions(remy: RemyClient<DemoStore>) {
 
   const placeOrder = remy.defineAction({
     name: "place_order",
-    title: "Place the order",
+    title: "Place the demo order",
     description:
-      "Place the order and charge the saved payment method. This is irreversible and requires the commerce.purchase grant for unattended execution.",
+      "Demo only. Place a fictional Morrow order; no payment is charged and no real order is created. This simulated irreversible action requires the commerce.purchase grant for unattended execution.",
     kind: "write",
     input: emptyInput,
     risk: "high",
@@ -369,18 +369,26 @@ export function registerDemoActions(remy: RemyClient<DemoStore>) {
       if (state.order.status === "placed") throw new Error("This order is already placed.");
       const total = getCartTotal(state);
       return {
-        summary: `Place the order for £${total}.`,
+        summary: `Place the fictional demo order for £${total}. No payment will be charged.`,
         resources: [
           RESOURCE_KEYS.cart,
           RESOURCE_KEYS.delivery,
           RESOURCE_KEYS.discount,
           RESOURCE_KEYS.order,
         ],
-        changes: [change("Purchase", "order.status", "Not purchased", `Charge £${total}`, "status")],
+        changes: [
+          change(
+            "Demo purchase",
+            "order.status",
+            "Not placed",
+            `Place fictional £${total} order`,
+            "status",
+          ),
+        ],
         details: {
           Item: `${state.cart.line.quantity} × ${state.cart.line.name}`,
           Total: `£${total}`,
-          Payment: state.customer.paymentMethod,
+          Payment: `${state.customer.paymentMethod} (simulated; not charged)`,
           Delivery: state.customer.deliveryAddress,
         },
       };
