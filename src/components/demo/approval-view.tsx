@@ -61,7 +61,9 @@ export function ApprovalView({ receipt }: { receipt: ActionReceipt }) {
           onClick={() => void approve(receipt.id)}
           className="group inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#19362e] px-5 text-xs font-bold text-white transition-transform hover:-translate-y-0.5"
         >
-          {isPurchase ? `Buy now${total ? ` · ${total}` : ""}` : "Approve change"}
+          {isPurchase
+            ? `Approve ${total ?? "this"} purchase`
+            : "Approve change"}
           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </button>
         <button

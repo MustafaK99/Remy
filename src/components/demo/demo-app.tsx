@@ -8,12 +8,14 @@ import {
   ChevronDown,
   Minus,
   Plus,
+  RotateCcw,
   Search,
   ShoppingBag,
   Star,
   UserRound,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { CopyButton } from "@/components/copy-button";
 import {
   getCartTotal,
   getDeliveryCost,
@@ -62,6 +64,22 @@ function DemoWorkspace() {
     setDiscountCode("");
   };
 
+  const resetDemo = () => {
+    reset();
+    setDrawerOpen(false);
+    setSelectedColour("Charcoal");
+    setDiscountCode("");
+  };
+
+  const webmcpMessage =
+    webmcpStatus === "ready"
+      ? "WebMCP tools ready"
+      : webmcpStatus === "checking"
+        ? "Checking WebMCP support"
+        : webmcpStatus === "unsupported"
+          ? "WebMCP is unavailable in this browser — the shop still works normally"
+          : "WebMCP tools could not register — the shop still works normally";
+
   return (
     <div className="min-h-screen bg-[#f4efe5] text-[#19362e]">
       <div
@@ -69,15 +87,60 @@ function DemoWorkspace() {
           drawerOpen ? "lg:pr-[420px]" : ""
         }`}
       >
-        <div className="border-b border-white/10 bg-[#0a0a0a] text-white">
-          <div className="mx-auto flex max-w-[1280px] flex-col gap-3 px-5 py-3 sm:px-8 md:flex-row md:items-center md:justify-between">
-            <p className="text-xs leading-5 text-white/55">
-              <span className="mr-3 font-mono text-[9px] font-medium uppercase tracking-[0.1em] text-[#e66749]">
-                Live WebMCP demo
-              </span>
-              An assistant uses the shop. Remy decides what runs and records the result.
-            </p>
-            <div className="flex shrink-0 items-center gap-4 text-[11px] font-medium">
+        <div className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a0a] text-white shadow-[0_8px_30px_rgba(10,10,10,.12)]">
+          <div className="mx-auto max-w-[1280px] px-5 py-3 sm:px-8">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="font-mono text-[9px] font-medium uppercase tracking-[0.1em] text-[#e66749]">
+                  Live WebMCP demo
+                </p>
+                <p className="mt-1 text-[11px] leading-4 text-white/48" aria-live="polite">
+                  {webmcpMessage}
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 text-[11px] font-medium">
+                <button
+                  type="button"
+                  onClick={resetDemo}
+                  className="inline-flex min-h-9 items-center gap-1.5 border border-white/18 px-3 text-white/72 transition-colors hover:border-white/40 hover:text-white"
+                >
+                  <RotateCcw className="size-3.5" /> Reset demo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDrawerOpen(true)}
+                  className="hidden text-white/82 transition-colors hover:text-white sm:block"
+                >
+                  Open Remy
+                </button>
+                <Link href="/" className="hidden text-white/42 transition-colors hover:text-white/80 md:block">
+                  How it works
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-px border border-white/12 bg-white/12 lg:grid-cols-[1fr_220px]">
+              <div className="flex min-w-0 items-center justify-between gap-3 bg-[#111111] py-2 pl-3 pr-2">
+                <div className="min-w-0">
+                  <span className="mr-2 font-mono text-[8px] uppercase tracking-[0.08em] text-white/32">First</span>
+                  <code className="text-[11px] text-white/76">Add Morrow One in Charcoal, choose express delivery, and apply HELLO10.</code>
+                </div>
+                <CopyButton
+                  value="Add Morrow One in Charcoal, choose express delivery, and apply HELLO10."
+                  label="Copy"
+                  tone="dark"
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3 bg-[#111111] py-2 pl-3 pr-2">
+                <div>
+                  <span className="mr-2 font-mono text-[8px] uppercase tracking-[0.08em] text-white/32">Then</span>
+                  <code className="text-[11px] text-white/76">Buy it.</code>
+                </div>
+                <CopyButton value="Buy it." label="Copy" tone="dark" />
+              </div>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between gap-4 sm:hidden">
               <button
                 type="button"
                 onClick={() => setDrawerOpen(true)}
@@ -286,7 +349,7 @@ function DemoWorkspace() {
                     </p>
                     <button
                       type="button"
-                      onClick={reset}
+                      onClick={resetDemo}
                       className="mt-4 text-sm font-bold underline decoration-[#19362e]/30 underline-offset-4"
                     >
                       Continue shopping

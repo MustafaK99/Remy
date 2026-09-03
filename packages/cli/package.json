@@ -1,7 +1,8 @@
 {
   "name": "@remy-ai/cli",
   "version": "0.1.0",
-  "description": "Initialize Remy in a Next.js application",
+  "private": true,
+  "description": "Unpublished placeholder for the planned Remy initializer",
   "type": "module",
   "bin": {
     "remy": "./bin/remy.mjs"
@@ -14,4 +15,3 @@
   },
   "license": "MIT"
 }
-

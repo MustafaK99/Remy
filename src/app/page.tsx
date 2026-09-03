@@ -27,22 +27,22 @@ const recoveryTypes = [
   {
     label: "Exact undo",
     description: "Restore the previous state after checking nothing changed underneath it.",
-    example: "Address change → restore the old address",
+    example: "Express delivery → restore standard delivery",
   },
   {
     label: "Compensation",
     description: "Perform a new corrective action when time cannot literally run backward.",
-    example: "Booked collection → cancel the booking",
+    example: "Booked appointment → cancel the booking",
   },
   {
     label: "Irreversible",
     description: "Be explicit that recovery is impossible and require the right approval first.",
-    example: "Sent message → cannot be unsent",
+    example: "Placed purchase → cannot be uncharged by pretending it never happened",
   },
 ];
 
 const adapters = [
-  ["WebMCP", "Available in this demo", "Page-scoped tools for browser agents."],
+  ["WebMCP", "Working implementation", "Page-scoped tools in the Morrow demo."],
   ["MCP", "Planned adapter", "Expose the same semantic actions outside the browser."],
   ["Agent SDKs", "Planned adapters", "Use the same policy and receipts in agent runtimes."],
 ];
@@ -59,8 +59,7 @@ export default function Home() {
               Ship agents users aren&apos;t afraid to trust.
             </h1>
             <p className="mt-7 max-w-[720px] text-base leading-7 text-white/60 sm:text-lg sm:leading-8">
-              Remy adds previews, approvals, clear receipts, and recovery to
-              every real action your AI agent takes.
+              Control, receipts, and recovery for AI agent actions.
             </p>
             <p className="mt-3 text-sm leading-6 text-white/38">
               Let reversible work happen. Pause what matters. Give users a way back.
@@ -74,34 +73,39 @@ export default function Home() {
                 Try the demo
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
-              <Link
-                href="/docs"
+              <a
+                href="https://github.com/MustafaK99/Remy"
+                target="_blank"
+                rel="noreferrer"
                 className="group inline-flex h-12 items-center gap-2 border border-white/20 px-5 text-sm font-medium text-white/76 transition-colors hover:border-white/42 hover:text-white"
               >
-                View the SDK
+                View source
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-              </Link>
+              </a>
             </div>
 
             <div className="mt-10 flex max-w-[720px] flex-col gap-3 border-y border-white/10 py-4 sm:flex-row sm:items-center">
               <span className="w-24 shrink-0 font-mono text-[10px] text-white/35">
-                Install · alpha
+                Run source
               </span>
               <div className="flex h-11 min-w-0 flex-1 items-center justify-between gap-4 border border-white/14 bg-white/[0.025] pl-4 pr-2">
                 <code className="truncate font-mono text-[12px] text-white/72">
                   <span className="mr-2 text-[#e66749]">$</span>
-                  npx @remy-ai/cli init
+                  git clone https://github.com/MustafaK99/Remy.git
                 </code>
-                <CopyButton value="npx @remy-ai/cli init" tone="dark" />
+                <CopyButton value="git clone https://github.com/MustafaK99/Remy.git" tone="dark" />
               </div>
               <Link
-                href="/docs#install"
+                href="/docs#quickstart"
                 className="group inline-flex h-11 shrink-0 items-center gap-2 px-1 text-xs font-medium text-white/56 hover:text-white sm:px-3"
               >
-                Installation guide
+                Local quickstart
                 <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
+            <p className="mt-3 max-w-[720px] font-mono text-[9px] leading-4 text-white/30">
+              Early WebMCP implementation · packages and one-call integration are roadmap work
+            </p>
           </div>
 
           <div className="mt-14 sm:mt-18">
@@ -188,14 +192,14 @@ export default function Home() {
             <div className="grid sm:grid-cols-[1fr_1fr]">
               <div className="border-b border-[#17241f]/12 p-5 sm:border-b-0 sm:border-r sm:p-6">
                 <p className="text-lg font-semibold tracking-[-0.035em]">
-                  Collection address changed
+                  Express delivery selected
                 </p>
                 <p className="mt-2 text-xs leading-5 text-[#68756e]">
                   Requested by Claude · WebMCP
                 </p>
                 <dl className="mt-6 border-y border-[#17241f]/12">
-                  <ReceiptLine label="Policy" value="Allowed · exact undo" />
-                  <ReceiptLine label="Result" value="Application state updated" />
+                  <ReceiptLine label="Policy" value="Automatic · exact undo" />
+                  <ReceiptLine label="Result" value="Cart total updated" />
                   <ReceiptLine label="Recorded" value="10:42:09" />
                 </dl>
               </div>
@@ -204,12 +208,12 @@ export default function Home() {
                   What changed
                 </p>
                 <dl className="mt-4 border-y border-[#17241f]/12">
-                  <ReceiptLine label="From" value="14 High Street" />
-                  <ReceiptLine label="To" value="22 New Road" />
+                  <ReceiptLine label="From" value="Standard · Free" />
+                  <ReceiptLine label="To" value="Express · £8" />
                 </dl>
                 <p className="mt-5 text-[11px] leading-5 text-[#68756e]">
-                  Raw inverse data stays private. Interfaces receive domain-readable
-                  changes and recovery status.
+                  The exact reversal restores standard delivery and appends a
+                  linked recovery receipt. The original never disappears.
                 </p>
               </div>
             </div>
@@ -244,8 +248,8 @@ export default function Home() {
         <div className="mx-auto max-w-[1240px] px-5 py-20 sm:px-10 lg:px-16 lg:py-28">
           <SectionIntro
             label="Developer integration"
-            title="Define actions once. Get control, receipts, and recovery everywhere."
-            text="The action contract stays beside your application code. Remy supplies the execution layer and observable state; you keep the business logic and interface."
+            title="Read the implementation. Define the action beside your code."
+            text="The current source includes the engine, React boundary, Morrow actions, and WebMCP adapter. Published packages and one-call setup are planned, not implied."
           />
           <Quickstart />
           <div className="mt-6 flex flex-wrap items-center gap-4 text-xs">
@@ -253,10 +257,10 @@ export default function Home() {
               href="/docs"
               className="group inline-flex items-center gap-2 font-medium text-white/76 hover:text-white"
             >
-              Read the SDK documentation
+              Read the implementation docs
               <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
             </Link>
-            <span className="text-white/24">Next.js alpha · protocol-neutral core</span>
+            <span className="text-white/24">Early implementation · protocol-neutral core</span>
           </div>
         </div>
       </section>
@@ -298,6 +302,10 @@ export default function Home() {
                 Define actions, run policy locally, keep receipts, and build any
                 interface you need without adopting a hosted control panel.
               </p>
+              <div className="mt-5 flex gap-5 text-xs text-white/64">
+                <a href="https://github.com/MustafaK99/Remy/blob/master/LICENSE" target="_blank" rel="noreferrer" className="hover:text-white">MIT licence</a>
+                <a href="https://github.com/MustafaK99/Remy/blob/master/ROADMAP.md" target="_blank" rel="noreferrer" className="hover:text-white">Roadmap</a>
+              </div>
             </div>
             <div>
               <p className="font-mono text-[10px] text-white/35">Optional hosted layer · planned</p>
@@ -320,7 +328,7 @@ export default function Home() {
               Give agents room to work without asking users to look away.
             </h2>
             <p className="mt-3 text-sm text-white/42">
-              Try the complete WebMCP flow or start with the SDK guide.
+              Try the complete Morrow WebMCP flow or inspect the source guide.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -335,7 +343,7 @@ export default function Home() {
               href="/docs"
               className="group inline-flex h-11 items-center gap-2 border border-white/20 px-4 text-sm font-medium text-white/72 hover:border-white/40 hover:text-white"
             >
-              View the SDK
+              View the docs
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
@@ -348,6 +356,7 @@ export default function Home() {
           <div className="flex gap-6 text-white/58">
             <Link href="/docs" className="hover:text-white">Docs</Link>
             <Link href="/demo" className="hover:text-white">Demo</Link>
+            <a href="https://github.com/MustafaK99/Remy" target="_blank" rel="noreferrer" className="hover:text-white">Source</a>
           </div>
         </div>
       </footer>

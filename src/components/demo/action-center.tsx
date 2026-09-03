@@ -15,6 +15,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import type { WebMCPStatus } from "@/remy/adapters/webmcp";
 import type { ActionReceipt } from "@/remy/core/types";
+import { summarizeActionRun } from "@/remy/core/summary";
 import {
   latestAwaitingReceipt,
   useRemy,
@@ -40,14 +41,14 @@ const controlOptions: Array<{
     value: "ask",
     label: "Ask on changes",
     shortLabel: "Ask",
-    description: "Every AI change waits for your approval.",
+    description: "Every AI change waits. This demo would interrupt four times.",
     icon: Hand,
   },
   {
     value: "safe",
     label: "Reversible actions",
     shortLabel: "Reversible",
-    description: "Reversible work can run. Other changes wait.",
+    description: "Three reversible changes run. The purchase still waits.",
     icon: ShieldCheck,
   },
   {
@@ -73,6 +74,23 @@ function inputOf(receipt: ActionReceipt) {
 
 function activityCopy(receipt: ActionReceipt): ActivityCopy {
   const input = inputOf(receipt);
+  const firstDiff = receipt.diff[0];
+
+  if (receipt.reversesReceiptId) {
+    return {
+      title:
+        receipt.actionName === "revert_choose_delivery"
+          ? "Delivery restored to standard"
+          : receipt.title,
+      detail:
+        firstDiff?.displayBefore && firstDiff.displayAfter
+          ? `${firstDiff.displayBefore} → ${firstDiff.displayAfter}`
+          : "The earlier state was restored.",
+      reversedTitle: receipt.title,
+      reversedDetail: "This recovery remains linked to the original change.",
+      reverseLabel: "",
+    };
+  }
 
   switch (receipt.actionName) {
     case "add_to_cart":
@@ -186,9 +204,12 @@ export function ActionCenter({
       snapshot.receipts.filter(
         (receipt) =>
           receipt.diff.length > 0 &&
-          !receipt.reversesReceiptId &&
           !["awaiting_approval", "staged"].includes(receipt.status),
       ),
+    [snapshot.receipts],
+  );
+  const runSummary = useMemo(
+    () => summarizeActionRun(snapshot.receipts),
     [snapshot.receipts],
   );
   const happened = activities.filter(
@@ -221,7 +242,9 @@ export function ActionCenter({
         ? "Checking assistant support"
         : connectionStatus === "ready"
           ? "Ready for an assistant"
-          : "Demo preview";
+          : connectionStatus === "unsupported"
+            ? "WebMCP unavailable · shop still works"
+            : "WebMCP registration failed · shop still works";
   const dockLabel = permissionRequest
     ? "AI wants more access"
     : awaiting
@@ -415,6 +438,24 @@ export function ActionCenter({
                 {awaiting ? <ApprovalView key={awaiting.id} receipt={awaiting} /> : null}
               </AnimatePresence>
 
+              <section className="border-b border-[#19362e]/12 px-5 py-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="text-sm font-black">Run summary</h3>
+                  <span className="font-mono text-[8px] uppercase tracking-[0.08em] text-[#718078]">
+                    Changes only
+                  </span>
+                </div>
+                <div className="mt-3 grid grid-cols-4 border-y border-[#19362e]/12">
+                  <RunStat value={runSummary.automatic} label="Automatic" />
+                  <RunStat value={runSummary.approvals} label="Approvals" />
+                  <RunStat value={runSummary.recovered} label="Recovered" />
+                  <RunStat value={runSummary.unresolved} label="Unresolved" />
+                </div>
+                <p className="mt-2 text-[10px] text-[#87928d]">
+                  {runSummary.changes} state-changing {runSummary.changes === 1 ? "action" : "actions"}. Read-only tools are excluded.
+                </p>
+              </section>
+
               <section className="px-5 py-5">
                 <div className="flex items-end justify-between gap-4">
                   <div>
@@ -556,6 +597,7 @@ function ActivityRow({
   onReverse: () => void;
 }) {
   const copy = activityCopy(receipt);
+  const isRecovery = Boolean(receipt.reversesReceiptId);
   const reversed = ["reverted", "compensated"].includes(receipt.status);
   const stopped = ["rejected", "denied", "failed"].includes(receipt.status);
   const working = ["proposed", "executing", "reverting"].includes(receipt.status);
@@ -581,9 +623,13 @@ function ActivityRow({
         : "Not done"
       : working
         ? "Working"
-        : "Done";
+        : isRecovery
+          ? "Recovery"
+          : "Done";
   const requester = receipt.agent?.name ?? "AI";
-  const actorLabel =
+  const actorLabel = isRecovery
+    ? `Recovery receipt · linked to ${receipt.reversesReceiptId}`
+    :
     receipt.actor === "user"
       ? "Changed by you"
       : receipt.status === "committed" &&
@@ -644,5 +690,16 @@ function ActivityRow({
         </div>
       </div>
     </motion.article>
+  );
+}
+
+function RunStat({ value, label }: { value: number; label: string }) {
+  return (
+    <div className="border-r border-[#19362e]/10 py-3 text-center last:border-r-0">
+      <p className="text-lg font-black tracking-[-0.04em]">{value}</p>
+      <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.05em] text-[#718078]">
+        {label}
+      </p>
+    </div>
   );
 }

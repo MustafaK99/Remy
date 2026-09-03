@@ -71,7 +71,7 @@ export class RemyEngine<State> {
   ) {
     this.autonomy = options.autonomy ?? "reversible";
     this.allowPurchases = options.allowPurchases ?? false;
-    this.taskId = options.taskId ?? "return-order-1842";
+    this.taskId = options.taskId ?? "morrow-checkout";
     this.runId = options.runId ?? "remy-demo-run";
     this.onPersist = options.onPersist;
   }
@@ -249,6 +249,8 @@ export class RemyEngine<State> {
         taskId: this.taskId,
         sequence: this.records.length + 1,
         actionName,
+        actionKind: action.kind,
+        definitionVersion: action.version ?? "1",
         title: action.title,
         actor: meta.actor ?? "agent",
         agent:
@@ -331,6 +333,8 @@ export class RemyEngine<State> {
       taskId: this.taskId,
       sequence: this.records.length + 1,
       actionName,
+      actionKind: action.kind,
+      definitionVersion: action.version ?? "1",
       title: action.title,
       actor,
       agent: actor === "agent" ? (meta.agent ?? this.activeAgent) : undefined,
@@ -719,6 +723,12 @@ export class RemyEngine<State> {
             "compensated",
           ].includes(event.type),
         );
+      const firstExecutionOutcome = events.find((event) =>
+        ["committed", "failed", "rejected", "denied"].includes(event.type),
+      );
+      const failureEvent = [...events]
+        .reverse()
+        .find((event) => Boolean(event.error));
       const reversalEvent = [...events]
         .reverse()
         .find((event) => ["reverted", "compensated"].includes(event.type));
@@ -726,6 +736,14 @@ export class RemyEngine<State> {
         ...record,
         status: latest?.type ?? "proposed",
         completedAt: completion?.at,
+        durationMs: firstExecutionOutcome
+          ? Math.max(
+              0,
+              new Date(firstExecutionOutcome.at).getTime() -
+                new Date(record.proposedAt).getTime(),
+            )
+          : undefined,
+        errorCode: failureEvent?.error?.code,
         reversedByReceiptId: reversalEvent?.data?.reversedByReceiptId as
           | string
           | undefined,

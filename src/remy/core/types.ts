@@ -71,6 +71,8 @@ export type ActionRecord = {
   taskId: string;
   sequence: number;
   actionName: string;
+  actionKind?: "read" | "mutation";
+  definitionVersion?: string;
   title: string;
   actor: Actor;
   agent?: AgentIdentity;
@@ -107,6 +109,8 @@ export type ActionEvent = {
 export type ActionReceipt = ActionRecord & {
   status: ActionStatus;
   completedAt?: string;
+  durationMs?: number;
+  errorCode?: string;
   reversedByReceiptId?: string;
 };
 
@@ -122,6 +126,7 @@ export type ActionContext<State> = EngineStateAdapter<State>;
 
 export type ActionDefinition<State, Input = unknown, Output = unknown> = {
   name: string;
+  version?: string;
   title: string;
   description: string;
   kind: "read" | "mutation";

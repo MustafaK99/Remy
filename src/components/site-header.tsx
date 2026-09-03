@@ -50,14 +50,14 @@ export function SiteHeader({ tone = "light" }: { tone?: HeaderTone }) {
           </Link>
         </nav>
         <Link
-          href="/docs#install"
+          href="/docs#quickstart"
           className={`group inline-flex h-9 items-center gap-2 border px-3.5 text-xs font-medium transition-colors ${
             isDark
               ? "border-white bg-white text-[#0a0a0a] hover:bg-white/85"
               : "border-[#19362e] bg-[#19362e] text-white hover:bg-[#28483e]"
           }`}
         >
-          Get started
+          Run locally
           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>

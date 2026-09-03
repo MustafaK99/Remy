@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createDemoEngine } from "@/demo/create-engine";
 import { RESOURCE_KEYS } from "@/demo/data";
+import { summarizeActionRun } from "./summary";
 
 describe("Remy shop demo engine", () => {
   let engine: ReturnType<typeof createDemoEngine>;
@@ -139,6 +140,25 @@ describe("Remy shop demo engine", () => {
     expect(engine.getSnapshot().receipts.at(-1)?.reversesReceiptId).toBe(
       delivery.id,
     );
+  });
+
+  it("summarizes state-changing receipts without counting read-only tools", async () => {
+    await addHeadphones(engine);
+    await engine.run("choose_delivery", { method: "express" });
+    const delivery = engine.getSnapshot().receipts.at(-1)!;
+    await engine.run("apply_discount", { code: "HELLO10" });
+    await engine.run("prepare_checkout", {});
+    await engine.revert(delivery.id);
+    const purchase = await engine.run("place_order", {});
+    if (purchase.ok) await engine.approve(purchase.actionId);
+
+    expect(summarizeActionRun(engine.getSnapshot().receipts)).toEqual({
+      changes: 4,
+      automatic: 3,
+      approvals: 1,
+      recovered: 1,
+      unresolved: 0,
+    });
   });
 
   it("blocks unsafe undo after a resource version conflict", async () => {
