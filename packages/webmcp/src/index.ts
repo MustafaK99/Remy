@@ -39,9 +39,11 @@ export type WebMCPRegistration = {
   readonly unregister: () => void;
 };
 
-type RegisterOptions = {
+export type RegisterOptions = {
   readonly signal?: AbortSignal;
   readonly modelContext?: WebMCPModelContext;
+  /** Extra page-specific tools that should share this registration lifecycle. */
+  readonly additionalTools?: ReadonlyArray<WebMCPTool>;
 };
 
 const EMPTY_SCHEMA = {
@@ -168,6 +170,7 @@ export async function registerWebMCP<Context>(
 
   const registered: string[] = [];
   const failures: Array<{ name: string; error: string }> = [];
+  const pendingRegistrations: Array<Promise<void>> = [];
   const register = async (tool: WebMCPTool) => {
     if (lifecycle.signal.aborted) return;
     try {
@@ -181,10 +184,21 @@ export async function registerWebMCP<Context>(
     }
   };
 
+  const queue = (tool: WebMCPTool) => {
+    pendingRegistrations.push(register(tool));
+  };
+
+  // Page-specific task tools are the clearest entry point for an agent. Start
+  // registering them first, then initiate every remaining registration without
+  // waiting for a round trip between tools.
+  for (const tool of options.additionalTools ?? []) {
+    queue(tool);
+  }
+
   for (const action of remy.listActions()) {
     try {
       const schema = inputJsonSchema(action);
-      await register({
+      queue({
         name: action.name,
         title: action.title,
         description: descriptorDescription(action),
@@ -210,7 +224,7 @@ export async function registerWebMCP<Context>(
     }
   }
 
-  await register({
+  queue({
     name: "get_remy_status",
     title: "Read Remy controls",
     description: "Read the current autonomy mode, grants, principal attribution, and pending control request. This changes nothing.",
@@ -227,7 +241,7 @@ export async function registerWebMCP<Context>(
     },
   });
 
-  await register({
+  queue({
     name: "identify_assistant",
     title: "Identify this assistant to Remy",
     description: "Set a self-reported assistant label for action attribution. This never grants authority.",
@@ -268,7 +282,7 @@ export async function registerWebMCP<Context>(
     },
   });
 
-  await register({
+  queue({
     name: "request_remy_controls",
     title: "Request different Remy controls",
     description: "Request a different autonomy mode, pause state, or named grants. Increased access waits for the user.",
@@ -309,7 +323,7 @@ export async function registerWebMCP<Context>(
     },
   });
 
-  await register({
+  queue({
     name: "get_action_history",
     title: "Read agent action history",
     description: "Read concise semantic receipts for agent-requested actions. This changes nothing.",
@@ -329,7 +343,7 @@ export async function registerWebMCP<Context>(
     }),
   });
 
-  await register({
+  queue({
     name: "revert_action",
     title: "Recover a Remy action",
     description: "Run the exact or compensating recovery for one committed receipt after version-safety checks.",
@@ -352,6 +366,8 @@ export async function registerWebMCP<Context>(
       return conciseResult(remy, "revert_action", result);
     },
   });
+
+  await Promise.all(pendingRegistrations);
 
   const status = failures.length === 0
     ? "ready"

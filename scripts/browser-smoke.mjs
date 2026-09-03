@@ -169,11 +169,20 @@ try {
   captureErrors(demo, demoErrors);
   await demo.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
   await demo.getByRole("button", { name: /Reset demo|Reset/, exact: false }).first().click();
-  await demo.waitForFunction(() => Boolean(window.__remyTools?.add_to_cart));
+  await demo.waitForFunction(() => Boolean(window.__remyTools?.prepare_demo_order));
   await demo.evaluate(async () => {
-    await window.__remyTools.add_to_cart.execute({ productId: "morrow-one", colour: "Charcoal", quantity: 1 });
-    await window.__remyTools.choose_delivery.execute({ method: "express" });
-    await window.__remyTools.apply_discount.execute({ code: "HELLO10" });
+    await window.__remyTools.identify_assistant.execute({
+      name: "ChatGPT",
+      provider: "OpenAI",
+      sessionId: "release-smoke-controlled",
+    });
+    await window.__remyTools.prepare_demo_order.execute({
+      productId: "morrow-one",
+      colour: "Charcoal",
+      quantity: 1,
+      delivery: "express",
+      discountCode: "HELLO10",
+    });
   });
   await demo.getByRole("button", { name: /Open Remy/ }).click();
   await demo.getByText("Morrow One added to your bag", { exact: true }).waitFor();
@@ -242,9 +251,13 @@ try {
   assert(await trusted.getByRole("slider", { name: "AI access" }).getAttribute("aria-valuetext") === "Trusted run", "Approved trusted mode was not applied.");
   assert(await trusted.getByRole("switch", { name: "Allow AI to buy without asking" }).getAttribute("aria-checked") === "true", "Approved purchase grant was not applied.");
   await trusted.evaluate(async () => {
-    await window.__remyTools.add_to_cart.execute({ productId: "morrow-one", colour: "Charcoal", quantity: 1 });
-    await window.__remyTools.choose_delivery.execute({ method: "express" });
-    await window.__remyTools.apply_discount.execute({ code: "HELLO10" });
+    await window.__remyTools.prepare_demo_order.execute({
+      productId: "morrow-one",
+      colour: "Charcoal",
+      quantity: 1,
+      delivery: "express",
+      discountCode: "HELLO10",
+    });
     await window.__remyTools.place_order.execute({});
   });
   await trusted.getByRole("heading", { name: "Order confirmed" }).waitFor();

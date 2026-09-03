@@ -48,7 +48,7 @@ const controlOptions: Array<{
     value: "safe",
     label: "Reversible actions",
     shortLabel: "Reversible",
-    description: "Three reversible changes run. The purchase still waits.",
+    description: "Changes Remy can reverse run automatically. The purchase still waits for you.",
     icon: ShieldCheck,
   },
   {

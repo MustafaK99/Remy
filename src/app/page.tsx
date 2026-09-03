@@ -79,8 +79,8 @@ export default function Home() {
           <div className="min-h-[480px] border-b border-[var(--border-subtle)] bg-[var(--surface-1)] lg:border-b-0 lg:border-r">
             <AutonomyFeature />
           </div>
-          <FeatureCopy title="Let reversible work run">
-            Low-risk changes execute automatically according to the user’s selected access.
+          <FeatureCopy title="Let undoable changes run">
+            If Remy knows how to put it back, the agent can act automatically. Purchases still wait.
           </FeatureCopy>
         </section>
 

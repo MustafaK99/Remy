@@ -9,7 +9,7 @@ type Mode = "preview" | "ask" | "safe" | "trusted";
 const modes: ReadonlyArray<AutonomyOption<Mode>> = [
   { value: "preview", label: "Preview", shortLabel: "Preview", description: "Prepare changes without executing them.", icon: EyeOff },
   { value: "ask", label: "Ask on changes", shortLabel: "Ask", description: "Pause before every state change.", icon: Hand },
-  { value: "safe", label: "Reversible actions", shortLabel: "Reversible", description: "Recoverable work runs. Purchases still wait.", icon: ShieldCheck },
+  { value: "safe", label: "Reversible actions", shortLabel: "Reversible", description: "Changes Remy can reverse run automatically. Purchases still wait.", icon: ShieldCheck },
   { value: "trusted", label: "Trusted run", shortLabel: "Trusted", description: "Run actions covered by the authority the user granted.", icon: Zap },
 ];
 

@@ -92,6 +92,63 @@ describe("generic WebMCP adapter", () => {
     expect(registry.active.size).toBe(0);
   });
 
+  it("registers page-specific tools with the same lifecycle", async () => {
+    const app = documentRemy();
+    const registry = registryMock();
+    const registration = await registerWebMCP(app.remy, {
+      modelContext: registry.modelContext,
+      additionalTools: [
+        {
+          name: "prepare_document",
+          title: "Prepare document",
+          description: "Prepare the document in one call.",
+          inputSchema: { type: "object", properties: {}, additionalProperties: false },
+          annotations: { readOnlyHint: false, untrustedContentHint: false },
+          execute: () => ({ ok: true }),
+        },
+      ],
+    });
+
+    expect(registration.status).toBe("ready");
+    expect(registration.registered).toContain("prepare_document");
+    expect(await registry.active.get("prepare_document")!.execute({})).toEqual({ ok: true });
+
+    registration.unregister();
+    expect(registry.active.has("prepare_document")).toBe(false);
+  });
+
+  it("starts every registration without serial host round trips", async () => {
+    const app = documentRemy();
+    const started: string[] = [];
+    const releases: Array<() => void> = [];
+    const modelContext: WebMCPModelContext = {
+      registerTool(tool) {
+        started.push(tool.name);
+        return new Promise<void>((resolve) => releases.push(resolve));
+      },
+    };
+
+    const registration = registerWebMCP(app.remy, {
+      modelContext,
+      additionalTools: [
+        {
+          name: "prepare_document",
+          description: "Prepare the document in one call.",
+          inputSchema: { type: "object", properties: {}, additionalProperties: false },
+          execute: () => ({ ok: true }),
+        },
+      ],
+    });
+
+    await Promise.resolve();
+    expect(started[0]).toBe("prepare_document");
+    expect(started).toContain("rename_document");
+    expect(started.length).toBeGreaterThan(2);
+
+    for (const release of releases) release();
+    expect((await registration).status).toBe("ready");
+  });
+
   it("keeps the external abort signal connected after registration", async () => {
     const app = documentRemy();
     const registry = registryMock();
