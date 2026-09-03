@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { createRemy, succeed } from "@remy-ai/core";
 import {
@@ -90,6 +90,47 @@ describe("generic WebMCP adapter", () => {
     expect(registry.active.size).toBe(count);
     second.unregister();
     expect(registry.active.size).toBe(0);
+  });
+
+  it("keeps the external abort signal connected after registration", async () => {
+    const app = documentRemy();
+    const registry = registryMock();
+    const external = new AbortController();
+    const removeListener = vi.spyOn(external.signal, "removeEventListener");
+    const registration = await registerWebMCP(app.remy, {
+      modelContext: registry.modelContext,
+      signal: external.signal,
+    });
+    const count = registration.registered.length;
+
+    expect(registry.active.size).toBe(count);
+    external.abort();
+    expect(registry.active.size).toBe(0);
+    expect(registry.getAborted()).toBe(count);
+    expect(removeListener).toHaveBeenCalledTimes(1);
+
+    registration.unregister();
+    registration.unregister();
+    expect(registry.getAborted()).toBe(count);
+    expect(removeListener).toHaveBeenCalledTimes(1);
+  });
+
+  it("registers nothing when the external signal is already aborted", async () => {
+    const app = documentRemy();
+    const registry = registryMock();
+    const external = new AbortController();
+    external.abort();
+
+    const registration = await registerWebMCP(app.remy, {
+      modelContext: registry.modelContext,
+      signal: external.signal,
+    });
+
+    expect(registration.registered).toEqual([]);
+    expect(registry.active.size).toBe(0);
+    registration.unregister();
+    registration.unregister();
+    expect(registry.getAborted()).toBe(0);
   });
 
   it("exposes controls without treating self-reported identity as authority", async () => {

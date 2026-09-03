@@ -148,9 +148,23 @@ export async function registerWebMCP<Context>(
   }
 
   const lifecycle = new AbortController();
-  const abort = () => lifecycle.abort();
-  if (options.signal?.aborted) lifecycle.abort();
-  else options.signal?.addEventListener("abort", abort, { once: true });
+  const externalSignal = options.signal;
+  let cleanedUp = false;
+  let externalListenerAttached = false;
+  const cleanup = () => {
+    if (cleanedUp) return;
+    cleanedUp = true;
+    if (externalListenerAttached) {
+      externalSignal?.removeEventListener("abort", cleanup);
+      externalListenerAttached = false;
+    }
+    lifecycle.abort();
+  };
+  if (externalSignal?.aborted) cleanup();
+  else if (externalSignal) {
+    externalSignal.addEventListener("abort", cleanup, { once: true });
+    externalListenerAttached = true;
+  }
 
   const registered: string[] = [];
   const failures: Array<{ name: string; error: string }> = [];
@@ -339,7 +353,6 @@ export async function registerWebMCP<Context>(
     },
   });
 
-  options.signal?.removeEventListener("abort", abort);
   const status = failures.length === 0
     ? "ready"
     : registered.length > 0
@@ -349,6 +362,6 @@ export async function registerWebMCP<Context>(
     status,
     registered: Object.freeze([...registered]),
     failures: Object.freeze([...failures]),
-    unregister: () => lifecycle.abort(),
+    unregister: cleanup,
   };
 }

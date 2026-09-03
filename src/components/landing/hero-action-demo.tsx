@@ -73,7 +73,7 @@ export function HeroActionDemo() {
     <section
       id="product"
       data-testid="document-action-demo"
-      className="overflow-hidden rounded-[18px] border border-[var(--line-strong)] bg-[var(--paper-strong)] text-[var(--ink)]"
+      className="overflow-hidden rounded-[12px] border border-[var(--line-strong)] bg-white text-[var(--ink)]"
     >
       <header className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
         <div>
@@ -94,7 +94,7 @@ export function HeroActionDemo() {
       </header>
 
       <div className="border-b border-[var(--line)] bg-[var(--paper-muted)] px-5 py-5 sm:px-7">
-        <span className="technical-label text-[var(--muted)]">Agent request</span>
+        <span className="text-xs font-semibold text-[var(--muted)]">Agent request</span>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--ink-soft)]">
           Rename “Untitled document” to “Launch brief”, move it to Project Atlas, then publish it.
         </p>
@@ -198,7 +198,7 @@ function ReceiptInspector({ receipt, canRecover, waitingPublish, publishApproved
 
   return (
     <aside className="min-h-[23rem] bg-[var(--paper)] p-5 sm:p-7" aria-live="polite">
-      <span className="technical-label text-[var(--muted)]">Readable receipt</span>
+      <span className="text-xs font-semibold text-[var(--muted)]">Readable receipt</span>
       <AnimatePresence mode="wait" initial={false}>
         {receipt ? (
           <motion.div key={receipt.id} initial={{ opacity: 0, x: 5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -5 }} transition={{ duration: 0.16 }} className="mt-4">

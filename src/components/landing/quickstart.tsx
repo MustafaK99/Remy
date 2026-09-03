@@ -9,7 +9,6 @@ import { registerWebMCP } from "@remy-ai/webmcp"
 import { z } from "zod"
 
 const remy = createRemy({ context: () => documents })
-
 const rename = remy.defineAction({
   name: "rename_document",
   title: "Rename document",
@@ -19,11 +18,7 @@ const rename = remy.defineAction({
   input: z.strictObject({ title: z.string() }),
   preview: ({ input, context }) => ({
     summary: \`Rename document to \${input.title}.\`,
-    changes: [{
-      label: "Title",
-      before: context.title,
-      after: input.title,
-    }],
+    changes: [{ label: "Title", before: context.title, after: input.title }],
     recovery: { title: context.title },
   }),
   execute: ({ input, context }) => {
@@ -40,13 +35,11 @@ const rename = remy.defineAction({
 })
 
 remy.register(rename)
-const registration = await registerWebMCP(remy)
-
-// Later: registration.unregister()`;
+const registration = await registerWebMCP(remy)`;
 
 export function Quickstart() {
   return (
-    <div className="mt-12 overflow-hidden border border-[var(--line-strong)] bg-[var(--paper-strong)]">
+    <div className="mt-12 overflow-hidden rounded-[10px] border border-[var(--line-strong)] bg-white">
       <div className="flex flex-col gap-3 border-b border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
         <div>
           <p className="text-sm font-semibold">Prepared alpha packages</p>
@@ -58,34 +51,22 @@ export function Quickstart() {
         </div>
       </div>
 
-      <div className="grid lg:grid-cols-[13rem_minmax(0,1fr)]">
-        <ol className="border-b border-[var(--line)] p-5 lg:border-b-0 lg:border-r sm:p-7">
-          {[
-            ["01", "Create Remy"],
-            ["02", "Wrap a function"],
-            ["03", "Register WebMCP"],
-            ["04", "Clean up"],
-          ].map(([number, label]) => (
-            <li key={number} className="flex gap-3 border-b border-[var(--line)] py-4 text-sm last:border-b-0">
-              <span className="font-mono text-xs font-semibold text-[var(--accent)]">{number}</span>
-              <span className="font-semibold">{label}</span>
-            </li>
-          ))}
-          <Link href="/docs#quickstart" className="group mt-7 inline-flex min-h-11 items-center gap-2 text-sm font-semibold hover:text-[var(--accent-hover)]">
-            Complete quickstart
-            <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        </ol>
-
-        <div className="min-w-0 bg-[var(--code)] text-white">
-          <div className="flex min-h-12 items-center justify-between border-b border-white/10 px-5 sm:px-7">
-            <span className="font-mono text-xs text-white/55">rename-document.ts</span>
-            <CopyButton value={actionCode} tone="dark" />
-          </div>
-          <pre className="max-h-[38rem] overflow-auto p-5 font-mono text-[13px] leading-6 text-white/75 sm:p-7">
-            <code>{actionCode}</code>
-          </pre>
+      <div className="min-w-0 bg-[var(--code)] text-white">
+        <div className="flex min-h-12 items-center justify-between border-b border-white/10 px-5 sm:px-7">
+          <span className="font-mono text-xs text-white/55">rename-document.ts</span>
+          <CopyButton value={actionCode} tone="dark" />
         </div>
+        <pre className="max-h-[34rem] overflow-auto p-5 font-mono text-[13px] leading-6 text-white/75 sm:p-7">
+          <code>{actionCode}</code>
+        </pre>
+      </div>
+
+      <div className="flex flex-col gap-2 border-t border-[var(--line)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+        <p className="text-xs text-[var(--muted)]">Call <code className="font-mono">registration.unregister()</code> when the integration is disposed.</p>
+        <Link href="/docs#quickstart" className="group inline-flex min-h-11 items-center gap-2 text-sm font-semibold hover:text-[var(--accent-hover)]">
+          Complete quickstart
+          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+        </Link>
       </div>
     </div>
   );

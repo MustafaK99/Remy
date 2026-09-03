@@ -59,15 +59,21 @@ try {
   captureErrors(page, errors);
 
   await page.goto(baseUrl, { waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: "Let agents act without asking every time." }).waitFor();
+  await page.getByRole("heading", { name: "Stop approving every agent action." }).waitFor();
   const product = page.getByTestId("document-action-demo");
-  await page.getByText("Your application keeps its state, authentication and business logic.").waitFor();
-  await page.getByText("Morrow demo: 4 actions · 3 automatic · 1 approval").waitFor();
+  await page.getByText("WebMCP first. Protocol-neutral underneath.").waitFor();
+  await page.getByText("Three actions. One approval. Nothing hidden.").waitFor();
+  await page.getByText("3 actions · 2 automatic · 1 approval").first().waitFor();
   assert(await page.locator('img[src*="morrow"], img[src*="remy-demo"]').count() === 0, "Morrow imagery is present on the homepage.");
+  assert(await page.getByText(/Morrow/).count() === 0, "Morrow copy is present on the homepage.");
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Homepage overflows at 1440px.");
-  assert(await page.getByRole("link", { name: "Try the live demo" }).getAttribute("href") === "/demo", "Live-demo CTA is broken.");
+  assert(await page.getByRole("link", { name: "See it work" }).getAttribute("href") === "#product", "Product-proof CTA is broken.");
+  assert((await page.getByRole("link", { name: "View the source" }).getAttribute("href"))?.includes("github.com/MustafaK99/Remy"), "Source CTA is broken.");
   assert((await page.getByRole("link", { name: "Read the quickstart" }).first().getAttribute("href"))?.includes("/docs#quickstart"), "Quickstart CTA is broken.");
   await page.screenshot({ path: join(output, "homepage-fold-1440.png") });
+
+  await page.getByRole("link", { name: "See it work" }).click();
+  assert(await page.evaluate(() => location.hash) === "#product", "Product-proof CTA did not scroll to the demonstration.");
 
   const copy = page.getByRole("button", { name: /Copy: npm install @remy-ai\/core @remy-ai\/webmcp/ }).first();
   await copy.click();
@@ -102,6 +108,7 @@ try {
   await page.getByRole("link", { name: "Read the quickstart" }).first().click();
   await page.waitForURL(/\/docs#quickstart$/);
   await page.getByRole("heading", { name: "Five-minute quickstart" }).waitFor();
+  await page.screenshot({ path: join(output, "docs-1440.png"), fullPage: true });
   assert(errors.length === 0, `Homepage/docs errors:\n${errors.join("\n")}`);
   await context.close();
 
@@ -120,6 +127,21 @@ try {
     await responsivePage.screenshot({ path: join(output, `homepage-${width}.png`), fullPage: true });
     assert(responsiveErrors.length === 0, `${width}px errors:\n${responsiveErrors.join("\n")}`);
     await responsive.close();
+  }
+
+  for (const route of ["docs", "demo"]) {
+    for (const width of [1440, 390]) {
+      const visual = await browser.newContext({ viewport: { width, height: width === 390 ? 844 : 1000 } });
+      const visualPage = await visual.newPage();
+      const visualErrors = [];
+      captureErrors(visualPage, visualErrors);
+      await visualPage.goto(`${baseUrl}/${route}`, { waitUntil: "networkidle" });
+      assert(await visualPage.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `${route} overflows at ${width}px.`);
+      await visualPage.screenshot({ path: join(output, `${route}-fold-${width}.png`) });
+      await visualPage.screenshot({ path: join(output, `${route}-${width}.png`), fullPage: true });
+      assert(visualErrors.length === 0, `${route} ${width}px errors:\n${visualErrors.join("\n")}`);
+      await visual.close();
+    }
   }
 
   const reduced = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: "reduce" });
@@ -162,7 +184,13 @@ try {
   await demo.getByText("Morrow One added to your bag", { exact: true }).waitFor();
   await demo.getByText("Express delivery selected", { exact: true }).waitFor();
   await demo.getByText("10% discount applied", { exact: true }).waitFor();
-  await demo.getByRole("button", { name: "Use standard" }).click();
+  const recovery = await demo.evaluate(async () => {
+    const history = await window.__remyTools.get_action_history.execute({});
+    const delivery = history.receipts.find((receipt) => receipt.action === "choose_delivery");
+    if (!delivery) return { ok: false, message: "Delivery receipt not found." };
+    return window.__remyTools.revert_action.execute({ receiptId: delivery.id });
+  });
+  assert(recovery.ok === true, "Agent-driven delivery recovery failed.");
   await demo.getByText("Delivery restored to standard", { exact: true }).waitFor();
   await demo.evaluate(async () => { await window.__remyTools.place_order.execute({}); });
   await demo.getByTestId("approve-purchase").waitFor();
@@ -174,6 +202,66 @@ try {
   assert(demoErrors.length === 0, `Morrow demo errors:\n${demoErrors.join("\n")}`);
   await demoContext.close();
 
+  const trustedContext = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
+  await trustedContext.addInitScript(() => {
+    const tools = {};
+    Object.defineProperty(window, "__remyTools", { value: tools, configurable: true });
+    Object.defineProperty(document, "modelContext", {
+      configurable: true,
+      value: {
+        registerTool(tool, options) {
+          if (tools[tool.name]) throw new Error(`Duplicate tool: ${tool.name}`);
+          tools[tool.name] = tool;
+          options?.signal?.addEventListener("abort", () => delete tools[tool.name], { once: true });
+        },
+      },
+    });
+  });
+  const trusted = await trustedContext.newPage();
+  const trustedErrors = [];
+  captureErrors(trusted, trustedErrors);
+  await trusted.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
+  await trusted.getByRole("button", { name: /Reset demo|Reset/, exact: false }).first().click();
+  await trusted.waitForFunction(() => Boolean(window.__remyTools?.request_remy_controls));
+  const controlRequest = await trusted.evaluate(async () => {
+    await window.__remyTools.identify_assistant.execute({
+      name: "ChatGPT",
+      provider: "OpenAI",
+      sessionId: "release-smoke",
+    });
+    const request = await window.__remyTools.request_remy_controls.execute({
+      mode: "trusted",
+      grants: ["commerce.purchase"],
+    });
+    const beforeApproval = await window.__remyTools.get_remy_status.execute({});
+    return { request, beforeApproval };
+  });
+  assert(controlRequest.request.status === "awaiting_user", "Agent control escalation did not wait for the user.");
+  assert(controlRequest.beforeApproval.controls.autonomy === "reversible", "Trusted mode was applied before user approval.");
+  assert(controlRequest.beforeApproval.controls.grants.length === 0, "Purchase authority was granted before user approval.");
+  await trusted.getByRole("button", { name: /Open Remy\. AI wants more access/ }).click();
+  await trusted.getByRole("heading", { name: "ChatGPT wants more access" }).waitFor();
+  assert(await trusted.getByRole("slider", { name: "AI access" }).getAttribute("aria-valuetext") === "Reversible actions", "Visible controls changed before permission approval.");
+  await trusted.getByRole("button", { name: "Allow this change" }).click();
+  await trusted.getByRole("heading", { name: "ChatGPT wants more access" }).waitFor({ state: "hidden" });
+  assert(await trusted.getByRole("slider", { name: "AI access" }).getAttribute("aria-valuetext") === "Trusted run", "Approved trusted mode was not applied.");
+  assert(await trusted.getByRole("switch", { name: "Allow AI to buy without asking" }).getAttribute("aria-checked") === "true", "Approved purchase grant was not applied.");
+  await trusted.evaluate(async () => {
+    await window.__remyTools.add_to_cart.execute({ productId: "morrow-one", colour: "Charcoal", quantity: 1 });
+    await window.__remyTools.choose_delivery.execute({ method: "express" });
+    await window.__remyTools.apply_discount.execute({ code: "HELLO10" });
+    await window.__remyTools.place_order.execute({});
+  });
+  await trusted.getByRole("heading", { name: "Order confirmed" }).waitFor();
+  assert(await trusted.getByTestId("approve-purchase").count() === 0, "Trusted purchase created a second approval request.");
+  const trustedHistory = await trusted.evaluate(async () => window.__remyTools.get_action_history.execute({}));
+  assert(trustedHistory.receipts.some((receipt) => receipt.action === "place_order" && receipt.principal === "ChatGPT"), "Trusted purchase receipt did not preserve the requesting assistant identity.");
+  assert(await trusted.getByText("Changed by ChatGPT", { exact: true }).count() >= 4, "Visible receipts do not attribute trusted actions to ChatGPT.");
+  await trusted.waitForTimeout(800);
+  await trusted.screenshot({ path: join(output, "morrow-trusted-complete.png"), fullPage: true });
+  assert(trustedErrors.length === 0, `Trusted-run errors:\n${trustedErrors.join("\n")}`);
+  await trustedContext.close();
+
   const unsupportedContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const unsupported = await unsupportedContext.newPage();
   await unsupported.goto(`${baseUrl}/demo`, { waitUntil: "networkidle" });
@@ -183,7 +271,7 @@ try {
   await unsupported.getByLabel("Shopping bag, 1 items").waitFor();
   await unsupportedContext.close();
 
-  console.log("Browser smoke passed: homepage, responsive layouts, controls, recovery, approval, Morrow WebMCP flow, and unsupported-browser fallback.");
+  console.log("Browser smoke passed: homepage, responsive layouts, controls, recovery, ordinary approval, agent-requested trusted purchase, and unsupported-browser fallback.");
   console.log(output);
 } finally {
   await browser.close();

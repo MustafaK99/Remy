@@ -6,7 +6,20 @@ Remy is an open-source TypeScript SDK for permissions, approvals, receipts and r
 
 > **Alpha:** the three npm packages are built, packed, and tested outside this repository. Public npm publication is the remaining release-owner step, so the install command below will return 404 until that publish is complete.
 
-## Install
+## Run the live demo locally
+
+Devpost judges and contributors can run the submitted source today:
+
+```bash
+git clone https://github.com/MustafaK99/Remy.git
+cd Remy
+npm ci
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). Cloning is the source-review path, not the future library integration method.
+
+## Install the library after publication
 
 ```bash
 npm install @remy-ai/core @remy-ai/webmcp
