@@ -86,7 +86,7 @@ registration.unregister();
 
 ## Running the demo
 
-The no-login Morrow demo uses a fictional £128 pair of headphones. In **Reversible actions** mode, changes Remy knows how to reverse run automatically: it adds Morrow One in Charcoal, chooses £8 express delivery, and applies `HELLO10`. The purchase cannot be reversed, so it waits for an explicit approval at the authoritative £123 total.
+The no-login Morrow demo uses a fictional £128 pair of headphones. In **Reversible actions** mode, changes Remy knows how to reverse run automatically: it adds Morrow One in Charcoal, chooses £8 express delivery, and applies `HELLO10`. The purchase cannot be reversed, so it waits for an explicit approval at the authoritative £123 total. The demo requires a deliberate press-and-hold so a routine agent click cannot silently cross that checkpoint.
 
 Undoing express delivery restores standard delivery, updates the total to £115, and appends a linked recovery receipt without deleting the original action. **Trusted run** is deliberately different: an agent can request the mode and the `commerce.purchase` grant, but that authority remains pending until the person accepts it. Once granted, the registered purchase can complete without a second approval.
 
@@ -96,10 +96,10 @@ Reset demo clears application state, receipts, pending approvals, controls, and 
 
 1. Run `npm run dev` and open `http://localhost:3000/demo` in a browser that implements `document.modelContext`.
 2. Confirm Remy says **Ready for an assistant**.
-3. Ask naturally: **“Buy me one pair of Morrow One headphones in Charcoal. Apply any available discount, use express delivery, and complete the order.”**
+3. Ask naturally: **“Buy me one pair of Morrow One headphones in Charcoal. Apply any available discount, use express delivery, and let me approve before placing the order.”**
 4. Open Remy and inspect the three automatic changes and the purchase waiting for approval. The `prepare_demo_order` shortcut reduces browser round trips while preserving a separate Remy receipt for every underlying action.
 5. Undo express delivery and confirm the total becomes £115 while both the original and recovery receipt remain.
-6. Approve or reject the explicit purchase request.
+6. Press and hold to approve the explicit purchase request, or reject it.
 
 The implementation calls [`document.modelContext.registerTool(...)`](./packages/webmcp/src/index.ts) imperatively. Unsupported browsers show a clear status and keep the ordinary order page usable.
 

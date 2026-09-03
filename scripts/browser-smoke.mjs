@@ -198,8 +198,13 @@ try {
   await demo.getByText("Delivery restored to standard", { exact: true }).waitFor();
   await demo.evaluate(async () => { await window.__remyTools.place_order.execute({}); });
   await demo.getByTestId("approve-purchase").waitFor();
-  assert((await demo.getByTestId("approve-purchase").textContent())?.includes("Approve £115 purchase"), "Purchase approval is not explicit or authoritative.");
+  assert((await demo.getByTestId("approve-purchase").textContent())?.includes("Hold to approve £115 purchase"), "Purchase approval is not explicit or authoritative.");
   await demo.getByTestId("approve-purchase").click();
+  assert(await demo.getByTestId("approve-purchase").isVisible(), "A routine click bypassed the user-only purchase confirmation.");
+  await demo.getByTestId("approve-purchase").focus();
+  await demo.keyboard.down("Space");
+  await demo.waitForTimeout(1_350);
+  await demo.keyboard.up("Space");
   await demo.getByRole("heading", { name: "Order confirmed" }).waitFor();
   await demo.getByTestId("approve-purchase").waitFor({ state: "hidden" });
   await demo.screenshot({ path: join(output, "morrow-complete.png"), fullPage: true });

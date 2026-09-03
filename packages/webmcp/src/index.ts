@@ -117,6 +117,13 @@ function conciseResult<Context>(
     status: result.status,
     summary: result.summary,
     requiresApproval: result.requiresApproval ?? false,
+    ...(result.requiresApproval
+      ? {
+          userActionRequired: true,
+          approvalInstruction:
+            "Stop and wait for the user to approve or reject this action. Do not click, press, or otherwise operate the approval control on the user's behalf.",
+        }
+      : {}),
     ...(exposedOutput === undefined ? {} : { output: exposedOutput }),
   };
 }

@@ -76,6 +76,22 @@ describe("generic WebMCP adapter", () => {
     expect(app.getTitle()).toBe("Launch plan");
   });
 
+  it("tells an agent to stop when an action needs the user's approval", async () => {
+    const app = documentRemy();
+    app.remy.setControls({ autonomy: "ask", paused: false, grants: [] });
+    const registry = registryMock();
+    await registerWebMCP(app.remy, { modelContext: registry.modelContext });
+
+    expect(await registry.active.get("rename_document")!.execute({ title: "Launch plan" })).toMatchObject({
+      ok: true,
+      status: "awaiting_approval",
+      requiresApproval: true,
+      userActionRequired: true,
+      approvalInstruction: expect.stringContaining("Do not click"),
+    });
+    expect(app.getTitle()).toBe("Draft");
+  });
+
   it("cleans up every tool and does not leave Strict Mode duplicates", async () => {
     const app = documentRemy();
     const registry = registryMock();
