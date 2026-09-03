@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   CircleAlert,
@@ -14,13 +14,12 @@ import {
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import type { WebMCPStatus } from "@/remy/adapters/webmcp";
-import type { ActionReceipt } from "@/remy/core/types";
-import { summarizeActionRun } from "@/remy/core/summary";
+import type { ActionReceipt } from "@/remy/core";
 import {
   latestAwaitingReceipt,
-  useRemy,
+  useDemoRemy,
   type ControlMode,
-} from "@/remy/react/provider";
+} from "@/demo/provider";
 import { ApprovalView } from "./approval-view";
 
 const controlOptions: Array<{
@@ -63,72 +62,56 @@ const controlOptions: Array<{
 type ActivityCopy = {
   title: string;
   detail: string;
-  reversedTitle: string;
-  reversedDetail: string;
   reverseLabel: string;
 };
 
 function inputOf(receipt: ActionReceipt) {
-  return receipt.input as Record<string, unknown>;
+  return receipt.input ?? {};
 }
 
 function activityCopy(receipt: ActionReceipt): ActivityCopy {
   const input = inputOf(receipt);
-  const firstDiff = receipt.diff[0];
+  const firstDiff = receipt.changes[0];
 
   if (receipt.reversesReceiptId) {
     return {
       title:
-        receipt.actionName === "revert_choose_delivery"
+        receipt.action.name === "recover_choose_delivery"
           ? "Delivery restored to standard"
-          : receipt.title,
+          : receipt.action.title,
       detail:
-        firstDiff?.displayBefore && firstDiff.displayAfter
-          ? `${firstDiff.displayBefore} → ${firstDiff.displayAfter}`
+        firstDiff?.before !== undefined && firstDiff.after !== undefined
+          ? `${String(firstDiff.before)} → ${String(firstDiff.after)}`
           : "The earlier state was restored.",
-      reversedTitle: receipt.title,
-      reversedDetail: "This recovery remains linked to the original change.",
       reverseLabel: "",
     };
   }
 
-  switch (receipt.actionName) {
+  switch (receipt.action.name) {
     case "add_to_cart":
       return {
         title: "Morrow One added to your bag",
         detail: `${String(input.colour)} · Quantity ${String(input.quantity)}`,
-        reversedTitle: "Morrow One removed from your bag",
-        reversedDetail: "The bag is back to how it was before.",
         reverseLabel: "Remove from bag",
       };
     case "remove_from_cart":
       return {
         title: "Morrow One removed from your bag",
         detail: "The item is no longer in your bag.",
-        reversedTitle: "Morrow One put back in your bag",
-        reversedDetail: "The removed item was restored.",
         reverseLabel: "Put it back",
       };
     case "set_quantity":
       return {
         title: `Quantity changed to ${String(input.quantity)}`,
         detail: "Your bag total changed too.",
-        reversedTitle: `Quantity changed back to ${String(receipt.before)}`,
-        reversedDetail: "The earlier quantity was restored.",
-        reverseLabel: `Set back to ${String(receipt.before)}`,
+        reverseLabel: `Set back to ${String(firstDiff?.before ?? "before")}`,
       };
     case "choose_delivery": {
       const express = input.method === "express";
-      const previousExpress = receipt.before === "express";
+      const previousExpress = firstDiff?.before === "Express · £8";
       return {
         title: express ? "Express delivery selected" : "Standard delivery selected",
         detail: express ? "Arrives tomorrow · £8" : "Arrives in 3–5 days · Free",
-        reversedTitle: previousExpress
-          ? "Express delivery restored"
-          : "Standard delivery restored",
-        reversedDetail: previousExpress
-          ? "Delivery is back to tomorrow."
-          : "Delivery is back to 3–5 days.",
         reverseLabel: previousExpress ? "Use express" : "Use standard",
       };
     }
@@ -136,24 +119,18 @@ function activityCopy(receipt: ActionReceipt): ActivityCopy {
       return {
         title: "10% discount applied",
         detail: "Code HELLO10 is now in your bag.",
-        reversedTitle: "Discount removed",
-        reversedDetail: "HELLO10 is no longer applied.",
         reverseLabel: "Remove discount",
       };
     case "place_order":
       return {
         title: "Order placed",
-        detail: receipt.preview.summary.replace("Place", "Placed"),
-        reversedTitle: "Order placed",
-        reversedDetail: "The purchase is complete.",
+        detail: receipt.summary.replace("Place", "Placed"),
         reverseLabel: "",
       };
     default:
       return {
-        title: receipt.title,
-        detail: receipt.preview.summary,
-        reversedTitle: "Change reversed",
-        reversedDetail: "The earlier value was restored.",
+        title: receipt.action.title,
+        detail: receipt.summary,
         reverseLabel: "Change it back",
       };
   }
@@ -189,27 +166,30 @@ export function ActionCenter({
   onOpenChange: (open: boolean) => void;
 }) {
   const {
-    snapshot,
     controlMode,
     lastError,
     setControlMode,
-    setAllowPurchases,
     revert,
-    engine,
-  } = useRemy();
+    runtime,
+    remySnapshot: snapshot,
+    purchaseGrant,
+    setPurchaseGrant,
+  } = useDemoRemy();
+  const engine = runtime.remy;
+  const [lastSeenSequence, setLastSeenSequence] = useState(0);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const dockButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(open);
   const awaiting = latestAwaitingReceipt(snapshot.receipts);
   const permissionRequest = snapshot.pendingControlRequest;
   const activities = useMemo(
     () =>
       snapshot.receipts.filter(
         (receipt) =>
-          receipt.diff.length > 0 &&
+          receipt.changes.length > 0 &&
+          (receipt.actor === "agent" || Boolean(receipt.reversesReceiptId)) &&
           !["awaiting_approval", "staged"].includes(receipt.status),
       ),
-    [snapshot.receipts],
-  );
-  const runSummary = useMemo(
-    () => summarizeActionRun(snapshot.receipts),
     [snapshot.receipts],
   );
   const happened = activities.filter(
@@ -218,8 +198,16 @@ export function ActionCenter({
   const didNotHappen = activities.filter((receipt) =>
     ["rejected", "denied", "failed"].includes(receipt.status),
   );
+  const latestAgentSequence = snapshot.receipts.reduce(
+    (latest, receipt) =>
+      receipt.actor === "agent" ? Math.max(latest, receipt.sequence) : latest,
+    0,
+  );
+  const effectiveLastSeen = latestAgentSequence < lastSeenSequence
+    ? 0
+    : lastSeenSequence;
   const unseenCount = activities.filter(
-    (receipt) => receipt.actor === "agent" && receipt.status === "committed",
+    (receipt) => receipt.actor === "agent" && receipt.sequence > effectiveLastSeen,
   ).length;
   const working = snapshot.receipts.some((receipt) =>
     ["proposed", "executing", "reverting"].includes(receipt.status),
@@ -233,7 +221,7 @@ export function ActionCenter({
   const stepOffset = 24 / (controlOptions.length - 1);
   const railPosition = (index: number) =>
     `calc(12px + ${index * stepPercent}% - ${index * stepOffset}px)`;
-  const assistantName = snapshot.activeAgent?.name;
+  const assistantName = snapshot.activePrincipal?.name;
   const assistantLine = assistantName
     ? `${assistantName} is using this shop`
     : working
@@ -242,43 +230,65 @@ export function ActionCenter({
         ? "Checking assistant support"
         : connectionStatus === "ready"
           ? "Ready for an assistant"
-          : connectionStatus === "unsupported"
+        : connectionStatus === "unsupported"
             ? "WebMCP unavailable · shop still works"
-            : "WebMCP registration failed · shop still works";
+            : connectionStatus === "partial"
+              ? "Some assistant actions are unavailable"
+              : "WebMCP registration failed · shop still works";
   const dockLabel = permissionRequest
     ? "AI wants more access"
     : awaiting
       ? "Purchase needs approval"
       : unseenCount > 0
         ? `${unseenCount} ${unseenCount === 1 ? "change" : "changes"} by AI`
-        : `${selectedOption.shortLabel} · Purchases ${snapshot.allowPurchases ? "on" : "ask"}`;
+        : `${selectedOption.shortLabel} · Purchases ${purchaseGrant ? "on" : "ask"}`;
   const notificationCount = permissionRequest || awaiting ? "!" : unseenCount || undefined;
+
+  useEffect(() => {
+    if (open && !wasOpen.current) closeButtonRef.current?.focus();
+    if (!open && wasOpen.current) {
+      requestAnimationFrame(() => dockButtonRef.current?.focus());
+    }
+    wasOpen.current = open;
+  }, [open]);
+
+  const closePanel = () => {
+    setLastSeenSequence(latestAgentSequence);
+    onOpenChange(false);
+  };
 
   return (
     <>
       <AnimatePresence>
         {open ? (
           <motion.aside
+            id="remy-panel"
             initial={{ x: "100%", opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", stiffness: 340, damping: 36 }}
             className="fixed inset-x-3 bottom-3 z-[70] flex max-h-[58svh] flex-col overflow-hidden border border-[#19362e]/15 bg-[#fffaf2] text-[#19362e] shadow-[0_22px_70px_rgba(25,54,46,.2)] sm:inset-x-auto sm:bottom-5 sm:right-5 sm:max-h-[76svh] sm:w-[420px] lg:inset-y-0 lg:right-0 lg:max-h-none lg:border-y-0 lg:border-r-0 lg:shadow-[-12px_0_40px_rgba(25,54,46,.1)]"
-            aria-label="Remy AI controls and changes"
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="remy-panel-title"
+            onKeyDown={(event) => {
+              if (event.key === "Escape") closePanel();
+            }}
           >
             <header className="flex items-center justify-between gap-4 border-b border-[#19362e]/12 px-5 py-4">
               <div className="flex min-w-0 items-center gap-3">
                 <RemySymbol />
                 <div className="min-w-0">
-                  <h2 className="text-sm font-black tracking-[-0.02em]">Remy</h2>
+                  <h2 id="remy-panel-title" className="text-sm font-black tracking-[-0.02em]">Remy</h2>
                   <p className="mt-0.5 truncate text-[11px] text-[#718078]">
                     {assistantLine}
                   </p>
                 </div>
               </div>
               <button
+                ref={closeButtonRef}
                 type="button"
-                onClick={() => onOpenChange(false)}
+                onClick={closePanel}
                 aria-label="Hide Remy"
                 className="grid size-9 place-items-center border border-transparent text-[#64766e] transition-colors hover:border-[#19362e]/15 hover:bg-[#f3eadc] hover:text-[#19362e]"
               >
@@ -365,7 +375,7 @@ export function ActionCenter({
                   <p className="text-xs font-black">Buy without asking</p>
                   <p className="mt-1 text-[11px] leading-4 text-[#718078]">
                     {controlMode === "full"
-                      ? snapshot.allowPurchases
+                      ? purchaseGrant
                         ? "AI may charge your saved payment method."
                         : "Every purchase still needs your approval."
                       : "Available only with Trusted run."}
@@ -374,21 +384,21 @@ export function ActionCenter({
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={snapshot.allowPurchases}
+                  aria-checked={purchaseGrant}
                   aria-label="Allow AI to buy without asking"
                   disabled={controlMode !== "full"}
-                  onClick={() => setAllowPurchases(!snapshot.allowPurchases)}
+                  onClick={() => setPurchaseGrant(!purchaseGrant)}
                   className={`relative h-7 w-12 shrink-0 border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                    snapshot.allowPurchases
+                    purchaseGrant
                       ? "border-[#19362e] bg-[#19362e]"
                       : "border-[#19362e]/25 bg-[#fffaf2]"
                   }`}
                 >
                   <motion.span
                     className={`absolute top-1 size-[18px] ${
-                      snapshot.allowPurchases ? "bg-[#f4c95d]" : "bg-[#8d9993]"
+                      purchaseGrant ? "bg-[#f4c95d]" : "bg-[#8d9993]"
                     }`}
-                    animate={{ left: snapshot.allowPurchases ? 24 : 4 }}
+                    animate={{ left: purchaseGrant ? 24 : 4 }}
                     transition={{ type: "spring", stiffness: 500, damping: 32 }}
                   />
                 </button>
@@ -413,7 +423,7 @@ export function ActionCenter({
                     </h3>
                     <p className="mt-2 text-xs leading-5 text-[#71473b]">
                       Allow {permissionRequest.controls.paused || permissionRequest.controls.autonomy === "preview" ? "Preview only" : permissionRequest.controls.autonomy === "trusted" ? "Trusted run" : permissionRequest.controls.autonomy === "ask" ? "Ask on changes" : "Reversible actions"}
-                      {permissionRequest.controls.allowPurchases
+                      {permissionRequest.controls.grants.includes("commerce.purchase")
                         ? " and buying without approval."
                         : ". Purchases will still ask."}
                     </p>
@@ -438,30 +448,12 @@ export function ActionCenter({
                 {awaiting ? <ApprovalView key={awaiting.id} receipt={awaiting} /> : null}
               </AnimatePresence>
 
-              <section className="border-b border-[#19362e]/12 px-5 py-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-sm font-black">Run summary</h3>
-                  <span className="font-mono text-[8px] uppercase tracking-[0.08em] text-[#718078]">
-                    Changes only
-                  </span>
-                </div>
-                <div className="mt-3 grid grid-cols-4 border-y border-[#19362e]/12">
-                  <RunStat value={runSummary.automatic} label="Automatic" />
-                  <RunStat value={runSummary.approvals} label="Approvals" />
-                  <RunStat value={runSummary.recovered} label="Recovered" />
-                  <RunStat value={runSummary.unresolved} label="Unresolved" />
-                </div>
-                <p className="mt-2 text-[10px] text-[#87928d]">
-                  {runSummary.changes} state-changing {runSummary.changes === 1 ? "action" : "actions"}. Read-only tools are excluded.
-                </p>
-              </section>
-
               <section className="px-5 py-5">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <h3 className="text-sm font-black">Changes</h3>
+                    <h3 className="text-sm font-black">Agent activity</h3>
                     <p className="mt-1 text-xs text-[#718078]">
-                      What changed on the site, in order.
+                      Assistant changes only · newest first.
                     </p>
                   </div>
                   {working ? (
@@ -475,7 +467,7 @@ export function ActionCenter({
                   <div className="mt-5 border-y border-[#19362e]/12 py-7">
                     <p className="text-sm font-bold">Nothing has changed yet.</p>
                     <p className="mt-1 text-xs leading-5 text-[#718078]">
-                      Changes made by you or an assistant will appear here.
+                      Changes made by an assistant will appear here.
                     </p>
                   </div>
                 ) : (
@@ -516,18 +508,24 @@ export function ActionCenter({
       <AnimatePresence>
         {!open ? (
           <motion.button
+            ref={dockButtonRef}
             type="button"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             whileHover={{ y: -2 }}
-            onClick={() => onOpenChange(true)}
+            onClick={() => {
+              setLastSeenSequence(latestAgentSequence);
+              onOpenChange(true);
+            }}
             className={`fixed bottom-4 right-4 z-50 flex min-h-14 max-w-[calc(100vw-2rem)] items-center gap-3 border p-2 pr-4 text-left shadow-[0_12px_34px_rgba(25,54,46,.16)] sm:bottom-6 sm:right-6 ${
               permissionRequest || awaiting
                 ? "border-[#19362e] bg-[#ef704f]"
                 : "border-[#19362e]/18 bg-[#fffaf2]"
             }`}
             aria-label={`Open Remy. ${dockLabel}`}
+            aria-controls="remy-panel"
+            aria-expanded="false"
           >
             <span className="relative">
               <RemySymbol inverted={Boolean(permissionRequest || awaiting)} />
@@ -598,37 +596,35 @@ function ActivityRow({
 }) {
   const copy = activityCopy(receipt);
   const isRecovery = Boolean(receipt.reversesReceiptId);
-  const reversed = ["reverted", "compensated"].includes(receipt.status);
+  const recovered = ["reverted", "compensated"].includes(receipt.status);
   const stopped = ["rejected", "denied", "failed"].includes(receipt.status);
   const working = ["proposed", "executing", "reverting"].includes(receipt.status);
-  const title = reversed
-    ? copy.reversedTitle
-    : stopped
-      ? receipt.actionName === "place_order"
+  const title = stopped
+      ? receipt.action.name === "place_order"
         ? "Order was not placed"
         : `${copy.title} was not completed`
       : copy.title;
-  const detail = reversed
-    ? copy.reversedDetail
-    : stopped
+  const detail = stopped
       ? receipt.status === "denied"
         ? "Blocked by your AI setting. Nothing changed."
         : "Nothing changed on the website."
+      : recovered
+        ? `${copy.detail} · A linked recovery followed.`
       : copy.detail;
-  const status = reversed
-    ? "Changed back"
-    : stopped
+  const status = stopped
       ? receipt.status === "denied"
         ? "Blocked"
         : "Not done"
+      : recovered
+        ? "Recovered"
       : working
         ? "Working"
         : isRecovery
-          ? "Recovery"
+          ? "Recovered"
           : "Done";
-  const requester = receipt.agent?.name ?? "AI";
+  const requester = receipt.principal?.name ?? "AI";
   const actorLabel = isRecovery
-    ? `Recovery receipt · linked to ${receipt.reversesReceiptId}`
+    ? `${receipt.actor === "user" ? "Recovered by you" : `Recovered by ${requester}`} · linked to the earlier change`
     :
     receipt.actor === "user"
       ? "Changed by you"
@@ -646,7 +642,7 @@ function ActivityRow({
     >
       <span
         className={`mt-0.5 grid size-7 shrink-0 place-items-center border ${
-          reversed
+          recovered || isRecovery
             ? "border-[#d7b13c] bg-[#f8de87]"
             : stopped
               ? "border-[#d79a86] bg-[#f7d7cc] text-[#994832]"
@@ -655,7 +651,7 @@ function ActivityRow({
       >
         {working ? (
           <CircleDashed className="size-3.5 animate-spin" />
-        ) : reversed ? (
+        ) : recovered || isRecovery ? (
           <RotateCcw className="size-3.5" />
         ) : stopped ? (
           <X className="size-3.5" />
@@ -676,7 +672,7 @@ function ActivityRow({
         <div className="mt-2 flex items-center justify-between gap-3">
           <p className="text-[10px] font-semibold text-[#87928d]">{actorLabel}</p>
           {receipt.status === "committed" &&
-          receipt.reversibility !== "irreversible" &&
+          ["exact", "compensating"].includes(receipt.action.recovery) &&
           canReverse &&
           copy.reverseLabel ? (
             <button
@@ -690,16 +686,5 @@ function ActivityRow({
         </div>
       </div>
     </motion.article>
-  );
-}
-
-function RunStat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="border-r border-[#19362e]/10 py-3 text-center last:border-r-0">
-      <p className="text-lg font-black tracking-[-0.04em]">{value}</p>
-      <p className="mt-0.5 text-[8px] font-bold uppercase tracking-[0.05em] text-[#718078]">
-        {label}
-      </p>
-    </div>
   );
 }

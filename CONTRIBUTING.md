@@ -26,9 +26,11 @@ npm run test:run
 npm run build
 ```
 
-Keep changes focused. Add or update tests for engine and policy behaviour. Do
-not weaken approval, stale-state, idempotency, history, or reversal guarantees.
-Documentation and UI claims must describe code that works in a clean checkout.
+Keep changes focused. Add or update tests for engine and policy behaviour. Keep
+the dependency rules in [ARCHITECTURE.md](./ARCHITECTURE.md) intact. Do not
+weaken approval, stale-state, idempotency, history, privacy, or recovery
+guarantees. Documentation and UI claims must describe code that works in a
+clean checkout.
 
 By contributing, you agree that your contribution is licensed under the MIT
 License in this repository.

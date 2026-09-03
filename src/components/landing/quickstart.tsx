@@ -5,62 +5,47 @@ cd Remy
 npm ci
 npm run dev`;
 
-const actionCode = `import { z } from "zod"
-import type { ActionDefinition } from "@/remy/core/types"
-import type { DemoState } from "@/demo/data"
-
-export const chooseDelivery: ActionDefinition<
-  DemoState,
-  { method: "standard" | "express" }
-> = {
+const actionCode = `const chooseDelivery = remy.defineAction({
   name: "choose_delivery",
-  version: "1",
-  title: "Changed delivery",
+  title: "Choose delivery",
   description: "Choose delivery for the current bag.",
-  kind: "mutation",
-  inputSchema: z.object({
+  kind: "write",
+  input: z.strictObject({
     method: z.enum(["standard", "express"]),
-  }).strict(),
-  inputJsonSchema: {
-    type: "object",
-    properties: {
-      method: { enum: ["standard", "express"] },
-    },
-    required: ["method"],
-    additionalProperties: false,
-  },
+  }),
   risk: "low",
-  reversibility: "exact",
-  preview: (input, context) => {
-    const before = context.getState().cart.delivery
+  preview: ({ input, context }) => {
+    const before = context.cart.delivery
     return {
       summary: "Choose " + input.method + " delivery.",
-      resourceKeys: ["cart:delivery"],
-      before,
-      after: input.method,
-      diff: [{
-        path: "cart.delivery",
+      resources: ["cart:delivery"],
+      changes: [{
         label: "Delivery",
-        kind: "replace",
         before,
         after: input.method,
       }],
+      recovery: { method: before },
     }
   },
-  execute: (input, context) => context.setState({
-    ...context.getState(),
-    cart: { ...context.getState().cart, delivery: input.method },
-  }),
-  undo: (receipt, context) => context.setState({
-    ...context.getState(),
-    cart: { ...context.getState().cart, delivery: receipt.before },
-  }),
-}`;
+  execute: async ({ input, context }) => {
+    await context.cart.setDelivery(input.method)
+    return succeed({ method: input.method })
+  },
+  recovery: {
+    kind: "exact",
+    execute: async ({ receipt, context }) => {
+      await context.cart.setDelivery(receipt.recovery.method)
+      return succeed({ method: receipt.recovery.method })
+    },
+  },
+})
+
+remy.register(chooseDelivery)`;
 
 const steps = [
   ["01", "Clone", "Run the current source; no package is published yet."],
-  ["02", "Inspect", "The Morrow actions show the real engine contract."],
-  ["03", "Adapt", "Keep your business logic and UI; define semantic operations around it."],
+  ["02", "Define", "Wrap an existing application function with one typed action."],
+  ["03", "Expose", "Register the same action with the headless WebMCP adapter."],
 ];
 
 export function Quickstart() {

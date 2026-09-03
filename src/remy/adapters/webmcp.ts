@@ -1,50 +1,103 @@
-"use client";
+import type {
+  ActionDescriptor,
+  ControlSettings,
+  Principal,
+  RemyClient,
+  RunResult,
+} from "@/remy/core";
 
-import { useEffect, useState } from "react";
-import type { DemoState } from "@/demo/data";
-import type { RemyEngine } from "@/remy/core/engine";
-import type { ControlSettings, EngineSnapshot } from "@/remy/core/types";
+export type WebMCPStatus =
+  | "checking"
+  | "ready"
+  | "partial"
+  | "unsupported"
+  | "error";
 
-export type WebMCPStatus = "checking" | "ready" | "unsupported" | "error";
-type PublicControlMode = "preview" | "ask" | "reversible" | "trusted";
-type PurchaseSetting = "ask" | "allow";
-
-const controlRank: Record<PublicControlMode, number> = {
-  preview: 0,
-  ask: 1,
-  reversible: 2,
-  trusted: 3,
+export type WebMCPTool = {
+  readonly name: string;
+  readonly title?: string;
+  readonly description: string;
+  readonly inputSchema: Record<string, unknown>;
+  readonly annotations?: {
+    readonly readOnlyHint?: boolean;
+    readonly untrustedContentHint?: boolean;
+  };
+  readonly execute: (input?: unknown) => unknown | Promise<unknown>;
 };
 
-function getMode(snapshot: EngineSnapshot<DemoState>): PublicControlMode {
-  if (snapshot.paused || snapshot.autonomy === "preview") return "preview";
-  if (snapshot.autonomy === "ask") return "ask";
-  return snapshot.autonomy === "trusted" ? "trusted" : "reversible";
-}
+export type WebMCPModelContext = {
+  readonly registerTool: (
+    tool: WebMCPTool,
+    options?: { readonly signal?: AbortSignal },
+  ) => void | Promise<void>;
+};
 
-function toControls(
-  mode: PublicControlMode,
-  purchases: PurchaseSetting,
-): ControlSettings {
-  return {
-    autonomy:
-      mode === "preview"
-        ? "preview"
-        : mode === "ask"
-          ? "ask"
-          : mode === "trusted"
-            ? "trusted"
-            : "reversible",
-    paused: false,
-    allowPurchases: mode === "trusted" && purchases === "allow",
-  };
-}
+export type WebMCPRegistration = {
+  readonly status: Exclude<WebMCPStatus, "checking">;
+  readonly registered: ReadonlyArray<string>;
+  readonly failures: ReadonlyArray<{ readonly name: string; readonly error: string }>;
+  readonly unregister: () => void;
+};
+
+type RegisterOptions = {
+  readonly signal?: AbortSignal;
+  readonly modelContext?: WebMCPModelContext;
+};
+
+const EMPTY_SCHEMA = {
+  type: "object",
+  properties: {},
+  additionalProperties: false,
+} as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object";
+  return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function conciseResult(result: Awaited<ReturnType<RemyEngine<DemoState>["run"]>>) {
+function inputJsonSchema(action: ActionDescriptor) {
+  if (action.jsonSchema) return { ...action.jsonSchema };
+  const converter = action.input["~standard"].jsonSchema?.input;
+  if (!converter) {
+    throw new Error(
+      `Action "${action.name}" cannot be registered with WebMCP because its Standard Schema implementation does not expose JSON Schema. Provide jsonSchema explicitly.`,
+    );
+  }
+  const schema = converter({ target: "draft-07" });
+  if (!isRecord(schema) || Object.keys(schema).length === 0) {
+    throw new Error(
+      `Action "${action.name}" produced an empty JSON Schema. Provide an explicit, restrictive jsonSchema override.`,
+    );
+  }
+  return schema;
+}
+
+function safeJson(value: unknown, depth = 0): unknown {
+  if (value === null || typeof value === "boolean" || typeof value === "string") {
+    return typeof value === "string" ? value.slice(0, 2_000) : value;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (depth >= 5) return undefined;
+  if (Array.isArray(value)) {
+    return value.slice(0, 100).map((entry) => safeJson(entry, depth + 1));
+  }
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value)
+        .slice(0, 100)
+        .flatMap(([key, entry]) => {
+          const safe = safeJson(entry, depth + 1);
+          return safe === undefined ? [] : [[key.slice(0, 128), safe]];
+        }),
+    );
+  }
+  return undefined;
+}
+
+function conciseResult<Context>(
+  remy: RemyClient<Context>,
+  actionName: string,
+  result: RunResult,
+) {
   if (!result.ok) {
     return {
       ok: false,
@@ -53,277 +106,248 @@ function conciseResult(result: Awaited<ReturnType<RemyEngine<DemoState>["run"]>>
       actionId: result.actionId,
     };
   }
+  const exposedOutput = result.output === undefined
+    ? undefined
+    : safeJson(remy.exposeOutput(actionName, result.output));
   return {
     ok: true,
     actionId: result.actionId,
     status: result.status,
     summary: result.summary,
     requiresApproval: result.requiresApproval ?? false,
-    output: result.output,
+    ...(exposedOutput === undefined ? {} : { output: exposedOutput }),
   };
 }
 
-export function useWebMCPRegistration(engine: RemyEngine<DemoState>) {
-  const [status, setStatus] = useState<WebMCPStatus>("checking");
+function descriptorDescription(action: ActionDescriptor) {
+  if (action.kind === "read") return `Read-only. ${action.description}`;
+  if (action.recovery === "irreversible") {
+    return `Consequential and irreversible. ${action.description}`;
+  }
+  return `${action.recovery === "exact" ? "Exactly recoverable" : "Compensating recovery"}. ${action.description}`;
+}
 
-  useEffect(() => {
-    const context = document.modelContext;
-    if (!context?.registerTool) {
-      const statusTimer = window.setTimeout(() => setStatus("unsupported"), 0);
-      return () => window.clearTimeout(statusTimer);
+function getDocumentContext(): WebMCPModelContext | undefined {
+  if (typeof document === "undefined") return undefined;
+  return document.modelContext;
+}
+
+export async function registerWebMCP<Context>(
+  remy: RemyClient<Context>,
+  options: RegisterOptions = {},
+): Promise<WebMCPRegistration> {
+  const modelContext = options.modelContext ?? getDocumentContext();
+  if (!modelContext?.registerTool) {
+    return {
+      status: "unsupported",
+      registered: [],
+      failures: [],
+      unregister: () => undefined,
+    };
+  }
+
+  const lifecycle = new AbortController();
+  const abort = () => lifecycle.abort();
+  if (options.signal?.aborted) lifecycle.abort();
+  else options.signal?.addEventListener("abort", abort, { once: true });
+
+  const registered: string[] = [];
+  const failures: Array<{ name: string; error: string }> = [];
+  const register = async (tool: WebMCPTool) => {
+    if (lifecycle.signal.aborted) return;
+    try {
+      await modelContext.registerTool(tool, { signal: lifecycle.signal });
+      registered.push(tool.name);
+    } catch (error) {
+      failures.push({
+        name: tool.name,
+        error: error instanceof Error ? error.message : "Registration failed.",
+      });
     }
+  };
 
-    const lifecycle = new AbortController();
-    const registrations = engine.listActions().map((action) =>
-      Promise.resolve(
-        context.registerTool(
-          {
-            name: action.name,
-            title: action.title,
-            description: action.description,
-            inputSchema: action.inputJsonSchema,
-            annotations: {
-              readOnlyHint: action.kind === "read",
-              untrustedContentHint: false,
-            },
-            async execute(rawInput: unknown) {
-              const result = await engine.run(action.name, rawInput, {
-                actor: "agent",
-                transport: "webmcp",
-              });
-              return conciseResult(result);
-            },
-          },
-          { signal: lifecycle.signal },
-        ),
-      ),
-    );
+  for (const action of remy.listActions()) {
+    try {
+      const schema = inputJsonSchema(action);
+      await register({
+        name: action.name,
+        title: action.title,
+        description: descriptorDescription(action),
+        inputSchema: schema,
+        annotations: {
+          readOnlyHint: action.kind === "read",
+          untrustedContentHint: false,
+        },
+        execute: async (rawInput) => {
+          const result = await remy.runByName(action.name, rawInput ?? {}, {
+            actor: "agent",
+            transport: "webmcp",
+            signal: lifecycle.signal,
+          });
+          return conciseResult(remy, action.name, result);
+        },
+      });
+    } catch (error) {
+      failures.push({
+        name: action.name,
+        error: error instanceof Error ? error.message : "Schema conversion failed.",
+      });
+    }
+  }
 
-    registrations.push(
-      Promise.resolve(
-        context.registerTool(
-          {
-            name: "get_remy_status",
-            title: "Read Remy controls",
-            description:
-              "Detect Remy on this page and read the current AI access, purchase setting, active assistant label, and pending requests. This does not change anything.",
-            inputSchema: { type: "object", properties: {}, additionalProperties: false },
-            annotations: { readOnlyHint: true, untrustedContentHint: false },
-            execute() {
-              const snapshot = engine.getSnapshot();
-              return {
-                remy: { present: true, version: "0.1", headless: true },
-                controls: {
-                  mode: getMode(snapshot),
-                  purchases: snapshot.allowPurchases ? "allow" : "ask",
-                },
-                assistant: snapshot.activeAgent ?? null,
-                pendingControlRequest: snapshot.pendingControlRequest ?? null,
-              };
-            },
-          },
-          { signal: lifecycle.signal },
-        ),
-      ),
-    );
+  await register({
+    name: "get_remy_status",
+    title: "Read Remy controls",
+    description: "Read the current autonomy mode, grants, principal attribution, and pending control request. This changes nothing.",
+    inputSchema: EMPTY_SCHEMA,
+    annotations: { readOnlyHint: true, untrustedContentHint: false },
+    execute: () => {
+      const snapshot = remy.getSnapshot();
+      return {
+        remy: { present: true, version: "0.2-alpha", headless: true },
+        controls: snapshot.controls,
+        principal: snapshot.activePrincipal ?? null,
+        pendingControlRequest: snapshot.pendingControlRequest ?? null,
+      };
+    },
+  });
 
-    registrations.push(
-      Promise.resolve(
-        context.registerTool(
-          {
-            name: "identify_assistant",
-            title: "Identify this assistant to Remy",
-            description:
-              "Set the plain-language assistant label shown beside future actions. Call once before changing the page. This identity is self-reported for attribution only and never grants access.",
-            inputSchema: {
-              type: "object",
-              properties: {
-                name: { type: "string", minLength: 1, maxLength: 48 },
-                provider: { type: "string", minLength: 1, maxLength: 48 },
-                sessionId: { type: "string", minLength: 1, maxLength: 96 },
-              },
-              required: ["name"],
-              additionalProperties: false,
-            },
-            annotations: { readOnlyHint: false, untrustedContentHint: false },
-            execute(input: unknown) {
-              if (!isRecord(input) || typeof input.name !== "string") {
-                return { ok: false, code: "INVALID_INPUT", message: "name is required." };
-              }
-              const name = input.name.trim().slice(0, 48);
-              if (!name) {
-                return { ok: false, code: "INVALID_INPUT", message: "name is required." };
-              }
-              const provider =
-                typeof input.provider === "string"
-                  ? input.provider.trim().slice(0, 48)
-                  : undefined;
-              const id =
-                typeof input.sessionId === "string" && input.sessionId.trim()
-                  ? input.sessionId.trim().slice(0, 96)
-                  : `${provider ?? "assistant"}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-              engine.identifyAgent({ id, name, provider: provider || undefined });
-              return {
-                ok: true,
-                assistant: engine.getSnapshot().activeAgent,
-                note: "Self-reported identity is used for attribution, not authorization.",
-              };
-            },
-          },
-          { signal: lifecycle.signal },
-        ),
-      ),
-    );
+  await register({
+    name: "identify_assistant",
+    title: "Identify this assistant to Remy",
+    description: "Set a self-reported assistant label for action attribution. This never grants authority.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", minLength: 1, maxLength: 48 },
+        provider: { type: "string", minLength: 1, maxLength: 48 },
+        sessionId: { type: "string", minLength: 1, maxLength: 96 },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, untrustedContentHint: false },
+    execute: (input) => {
+      if (!isRecord(input) || typeof input.name !== "string" || !input.name.trim()) {
+        return { ok: false, code: "INVALID_INPUT", message: "name is required." };
+      }
+      const name = input.name.trim().slice(0, 48);
+      const provider = typeof input.provider === "string"
+        ? input.provider.trim().slice(0, 48)
+        : undefined;
+      const id = typeof input.sessionId === "string" && input.sessionId.trim()
+        ? input.sessionId.trim().slice(0, 96)
+        : `${provider ?? "assistant"}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+      const principal: Principal = {
+        id,
+        name,
+        provider: provider || undefined,
+        assurance: "self-reported",
+      };
+      remy.identifyPrincipal(principal);
+      return {
+        ok: true,
+        principal,
+        note: "Self-reported identity is attribution only, never authorization.",
+      };
+    },
+  });
 
-    registrations.push(
-      Promise.resolve(
-        context.registerTool(
-          {
-            name: "request_remy_controls",
-            title: "Request different Remy controls",
-            description:
-              "Request a Remy autonomy mode: preview, ask, reversible, or trusted. You may also request whether purchases always ask or may run unattended. Restrictions apply immediately; increased access waits for the user to confirm in Remy.",
-            inputSchema: {
-              type: "object",
-              properties: {
-                mode: {
-                  type: "string",
-                  enum: ["preview", "ask", "reversible", "trusted"],
-                },
-                purchases: { type: "string", enum: ["ask", "allow"] },
-              },
-              additionalProperties: false,
-            },
-            annotations: { readOnlyHint: false, untrustedContentHint: false },
-            execute(input: unknown) {
-              if (!isRecord(input)) {
-                return { ok: false, code: "INVALID_INPUT", message: "Expected an object." };
-              }
-              const before = engine.getSnapshot();
-              const currentMode = getMode(before);
-              const requestedMode =
-                typeof input.mode === "string" && input.mode in controlRank
-                  ? (input.mode as PublicControlMode)
-                  : currentMode;
-              const requestedPurchases =
-                input.purchases === "allow" || input.purchases === "ask"
-                  ? input.purchases
-                  : before.allowPurchases
-                    ? "allow"
-                    : "ask";
+  await register({
+    name: "request_remy_controls",
+    title: "Request different Remy controls",
+    description: "Request a different autonomy mode, pause state, or named grants. Increased access waits for the user.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["preview", "ask", "reversible", "trusted"] },
+        paused: { type: "boolean" },
+        grants: { type: "array", maxItems: 32, items: { type: "string", minLength: 1, maxLength: 160 } },
+      },
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, untrustedContentHint: false },
+    execute: (input) => {
+      if (!isRecord(input)) return { ok: false, code: "INVALID_INPUT", message: "Expected an object." };
+      const before = remy.getSnapshot().controls;
+      const mode = ["preview", "ask", "reversible", "trusted"].includes(String(input.mode))
+        ? input.mode as ControlSettings["autonomy"]
+        : before.autonomy;
+      const grants = Array.isArray(input.grants)
+        ? Array.from(new Set(input.grants.filter((grant): grant is string => typeof grant === "string" && grant.length > 0).slice(0, 32)))
+        : [...before.grants];
+      const controls: ControlSettings = {
+        autonomy: mode,
+        paused: typeof input.paused === "boolean" ? input.paused : before.paused,
+        grants,
+      };
+      const rank = { preview: 0, ask: 1, reversible: 2, trusted: 3 } as const;
+      const increasesAccess = rank[controls.autonomy] > rank[before.autonomy] ||
+        (before.paused && !controls.paused) ||
+        controls.grants.some((grant) => !before.grants.includes(grant));
+      if (increasesAccess) {
+        const request = remy.requestControlChange(controls);
+        return { ok: true, status: "awaiting_user", requestId: request.id, message: "The request is visible in Remy and has not been applied." };
+      }
+      remy.setControls(controls);
+      return { ok: true, status: "applied", controls: remy.getSnapshot().controls };
+    },
+  });
 
-              if (requestedPurchases === "allow" && requestedMode !== "trusted") {
-                return {
-                  ok: false,
-                  code: "INVALID_COMBINATION",
-                  message: "Unattended purchases are only available in trusted mode.",
-                };
-              }
+  await register({
+    name: "get_action_history",
+    title: "Read agent action history",
+    description: "Read concise semantic receipts for agent-requested actions. This changes nothing.",
+    inputSchema: EMPTY_SCHEMA,
+    annotations: { readOnlyHint: true, untrustedContentHint: false },
+    execute: () => ({
+      receipts: remy.getSnapshot().receipts
+        .filter((receipt) => receipt.actor === "agent" || receipt.reversesReceiptId)
+        .map((receipt) => ({
+          id: receipt.id,
+          action: receipt.action.name,
+          title: receipt.action.title,
+          status: receipt.status,
+          principal: receipt.principal?.name,
+          recovery: receipt.action.recovery,
+        })),
+    }),
+  });
 
-              const controls = toControls(requestedMode, requestedPurchases);
-              const increasesAccess =
-                controlRank[requestedMode] > controlRank[currentMode] ||
-                (controls.allowPurchases && !before.allowPurchases);
+  await register({
+    name: "revert_action",
+    title: "Recover a Remy action",
+    description: "Run the exact or compensating recovery for one committed receipt after version-safety checks.",
+    inputSchema: {
+      type: "object",
+      properties: { receiptId: { type: "string", minLength: 1, maxLength: 256 } },
+      required: ["receiptId"],
+      additionalProperties: false,
+    },
+    annotations: { readOnlyHint: false, untrustedContentHint: false },
+    execute: async (input) => {
+      if (!isRecord(input) || typeof input.receiptId !== "string" || !input.receiptId.trim()) {
+        return { ok: false, code: "INVALID_INPUT", message: "receiptId must be a non-empty string." };
+      }
+      const result = await remy.revert(input.receiptId, {
+        actor: "agent",
+        transport: "webmcp",
+        signal: lifecycle.signal,
+      });
+      return conciseResult(remy, "revert_action", result);
+    },
+  });
 
-              if (increasesAccess) {
-                const request = engine.requestControlChange(controls);
-                return {
-                  ok: true,
-                  status: "awaiting_user",
-                  requestId: request.id,
-                  message: "The request is visible in Remy and has not been applied.",
-                };
-              }
-
-              engine.setControls(controls);
-              return {
-                ok: true,
-                status: "applied",
-                controls: {
-                  mode: getMode(engine.getSnapshot()),
-                  purchases: controls.allowPurchases ? "allow" : "ask",
-                },
-              };
-            },
-          },
-          { signal: lifecycle.signal },
-        ),
-      ),
-    );
-
-    registrations.push(
-      Promise.resolve(
-        context.registerTool(
-          {
-            name: "get_action_history",
-            title: "Read Remy action history",
-            description:
-              "Read concise receipts for actions attempted on this page. This does not change application state.",
-            inputSchema: { type: "object", properties: {}, additionalProperties: false },
-            annotations: { readOnlyHint: true, untrustedContentHint: false },
-            execute() {
-              return {
-                receipts: engine.getSnapshot().receipts.map((receipt) => ({
-                  id: receipt.id,
-                  title: receipt.title,
-                  status: receipt.status,
-                  actor: receipt.actor,
-                  assistant: receipt.agent?.name,
-                  reversibility: receipt.reversibility,
-                })),
-              };
-            },
-          },
-          { signal: lifecycle.signal },
-        ),
-      ),
-    );
-
-    registrations.push(
-      Promise.resolve(
-        context.registerTool(
-          {
-            name: "revert_action",
-            title: "Reverse a Remy action",
-            description:
-              "Reverse one committed, reversible action by receipt ID. This changes the page only after Remy checks the current access mode and version safety.",
-            inputSchema: {
-              type: "object",
-              properties: { receiptId: { type: "string", minLength: 1 } },
-              required: ["receiptId"],
-              additionalProperties: false,
-            },
-            annotations: { readOnlyHint: false, untrustedContentHint: false },
-            async execute(input: unknown) {
-              if (
-                !isRecord(input) ||
-                typeof input.receiptId !== "string" ||
-                !input.receiptId.trim()
-              ) {
-                return {
-                  ok: false,
-                  code: "INVALID_INPUT",
-                  message: "receiptId must be a non-empty string.",
-                };
-              }
-              const result = await engine.revert(input.receiptId, {
-                actor: "agent",
-                transport: "webmcp",
-              });
-              return conciseResult(result);
-            },
-          },
-          { signal: lifecycle.signal },
-        ),
-      ),
-    );
-
-    void Promise.all(registrations)
-      .then(() => setStatus("ready"))
-      .catch(() => setStatus("error"));
-
-    return () => lifecycle.abort();
-  }, [engine]);
-
-  return status;
+  options.signal?.removeEventListener("abort", abort);
+  const status = failures.length === 0
+    ? "ready"
+    : registered.length > 0
+      ? "partial"
+      : "error";
+  return {
+    status,
+    registered: Object.freeze([...registered]),
+    failures: Object.freeze([...failures]),
+    unregister: () => lifecycle.abort(),
+  };
 }

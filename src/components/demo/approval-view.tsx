@@ -2,14 +2,14 @@
 
 import { ArrowRight, CircleAlert, X } from "lucide-react";
 import { motion } from "motion/react";
-import type { ActionReceipt } from "@/remy/core/types";
-import { useRemy } from "@/remy/react/provider";
+import { useDemoRemy } from "@/demo/provider";
+import type { ActionReceipt } from "@/remy/core";
 
 export function ApprovalView({ receipt }: { receipt: ActionReceipt }) {
-  const { approve, reject } = useRemy();
-  const isPurchase = receipt.actionName === "place_order";
-  const details = Object.entries(receipt.preview.detail ?? {});
-  const total = receipt.preview.detail?.Total;
+  const { approve, reject } = useDemoRemy();
+  const isPurchase = receipt.action.name === "place_order";
+  const details = Object.entries(receipt.details ?? {});
+  const total = receipt.details?.Total;
 
   return (
     <motion.section
@@ -36,7 +36,7 @@ export function ApprovalView({ receipt }: { receipt: ActionReceipt }) {
           <p className="mt-2 text-xs leading-5 text-[#643426]">
             {isPurchase
               ? "AI prepared the order. Check it before your card is charged."
-              : receipt.preview.summary}
+              : receipt.summary}
           </p>
         </div>
       </div>

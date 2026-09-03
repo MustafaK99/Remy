@@ -1,81 +1,84 @@
-import type {
-  ActionDefinition,
-  AutonomyLevel,
-  PolicyDecision,
-} from "./types";
+import type { Policy, PolicyDecision, PolicyRequest } from "./public-types";
 
-export function decidePolicy<State>(
-  action: ActionDefinition<State, unknown>,
-  autonomy: AutonomyLevel,
-  paused: boolean,
-  allowPurchases = false,
-): PolicyDecision {
+export function decideAutonomyPolicy(request: PolicyRequest): PolicyDecision {
+  const { action, actor, controls } = request;
+
+  if (actor === "user") {
+    return {
+      outcome: "allow",
+      reason: "The user requested this action directly in the application.",
+    };
+  }
+
+  const missingGrant = action.requiredGrants.find(
+    (grant) => !controls.grants.includes(grant),
+  );
+  if (missingGrant) {
+    return {
+      outcome: "require_approval",
+      reason: `This action requires the ${missingGrant} grant.`,
+    };
+  }
+
   if (action.kind === "read") {
-    return { outcome: "allow", reason: "Read-only actions are safe to run." };
+    return { outcome: "allow", reason: "This action does not change state." };
   }
 
-  if (paused) {
-    return {
-      outcome: "deny",
-      reason: "New changes are paused by the user.",
-    };
+  if (controls.paused) {
+    return { outcome: "deny", reason: "New agent changes are paused." };
   }
 
-  if (action.alwaysRequireApproval) {
+  if (action.approval === "always") {
     return {
       outcome: "require_approval",
-      reason: "The developer requires approval for this action every time.",
+      reason: "The application requires approval for this action every time.",
     };
   }
 
-  if (action.requiresPurchasePermission && !allowPurchases) {
-    return {
-      outcome: "require_approval",
-      reason: "Purchases must be approved by the user in the current settings.",
-    };
-  }
-
-  if (autonomy === "preview") {
+  if (controls.autonomy === "preview") {
     return {
       outcome: "stage",
-      reason: "Preview only stages every change for review.",
+      reason: "Preview mode stages every state-changing action.",
     };
   }
 
-  if (autonomy === "ask") {
+  if (controls.autonomy === "ask") {
     return {
       outcome: "require_approval",
-      reason: "Ask on changes requires approval for every mutation.",
+      reason: "Ask mode requires approval for every state-changing action.",
     };
   }
 
-  if (autonomy === "reversible") {
-    if (action.reversibility === "exact" && action.risk !== "high") {
+  if (controls.autonomy === "reversible") {
+    const isLowEnoughRisk = action.risk !== "high";
+    if (action.recovery === "exact" && isLowEnoughRisk) {
       return {
         outcome: "allow",
-        reason: "This action is reversible and within the configured risk limit.",
+        reason: "This action has exact recovery and is within the risk limit.",
       };
     }
-
     if (
-      action.reversibility === "compensating" &&
-      action.safeToCompensateAutomatically &&
-      action.risk !== "high"
+      action.recovery === "compensating" &&
+      action.automaticCompensation &&
+      isLowEnoughRisk
     ) {
       return {
         outcome: "allow",
-        reason: "The developer marked this compensating action safe to run.",
+        reason: "The application marked this compensation safe for automatic work.",
       };
     }
-
     return {
       outcome: "require_approval",
-      reason: "This action is not safely reversible within the current policy.",
+      reason: "This action is not safely recoverable under the current policy.",
     };
   }
 
   return {
     outcome: "allow",
-    reason: "Trusted run permits this developer-defined action.",
+    reason: "Trusted mode permits this application-defined action.",
   };
+}
+
+export function createAutonomyPolicy(): Policy {
+  return decideAutonomyPolicy;
 }

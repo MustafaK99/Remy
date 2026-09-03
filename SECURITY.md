@@ -1,7 +1,8 @@
 # Security policy
 
-Remy is an early WebMCP implementation and is not yet a hosted security
-boundary. The demo uses fictional commerce data and local browser storage.
+Remy is an early, protocol-neutral TypeScript implementation with a WebMCP
+adapter. It is not a hosted security boundary. The demo uses fictional commerce
+data and local browser storage.
 
 ## Report a vulnerability
 
@@ -15,12 +16,16 @@ version or commit, reproduction steps, impact, and any suggested mitigation.
 - Enforce authentication, authorisation, eligibility, and monetary totals in
   the host application or server.
 - Validate all action input at runtime and allowlist persisted fields.
+- Treat pending execution input, outputs, and recovery material as private;
+  serialize only an explicitly redacted minimum when durable recovery is needed.
 - Keep secrets, credentials, payment details, prompts, and transcripts out of
   receipts.
 - Require explicit approval for irreversible or high-consequence actions.
 - Use idempotency keys and resource-version checks at the real system boundary.
 - Configure retention and redaction before using durable storage.
 - Protect production state-changing endpoints against CSRF, replay, and abuse.
+- Treat browser journals as inspectable and mutable, not audit-grade evidence.
 
-See the [production security checklist](./src/app/docs/page.tsx) and the
+See the [architecture](./ARCHITECTURE.md),
+[production security checklist](./src/app/docs/page.tsx), and
 [roadmap](./ROADMAP.md) for the current boundary and planned hardening.

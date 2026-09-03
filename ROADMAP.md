@@ -8,12 +8,15 @@ will follow the evidence from real integrations.
 ## Now
 
 - Working WebMCP Morrow demonstration.
-- Protocol-neutral semantic action engine.
+- Application-neutral, protocol-neutral semantic action engine.
+- Inferred `defineAction()` API over Standard Schema V1.
 - Policies and user-selectable autonomy modes.
+- Replaceable application policies and generic capability grants.
 - Explicit approvals for consequential actions.
 - Append-only receipts and human-readable diffs.
 - Exact reversal and compensation model.
-- Local action history and persistence.
+- Versioned local action journal separated from application state.
+- Generic headless WebMCP registration and React external-store hook.
 - MIT-licensed public release.
 
 ## Next
@@ -24,12 +27,17 @@ will follow the evidence from real integrations.
   - `@remy-ai/webmcp`
   - `@remy-ai/cli`
 - Publish and continuously verify an npm quickstart.
-- Genericise the WebMCP adapter so it is not coupled to `DemoState`.
-- Implement and test a one-call WebMCP integration.
-- Add pluggable receipt storage with retention and redaction controls.
+- Publish and test the current one-call WebMCP registration as a package API.
+- Add durable receipt stores with retention and redaction controls.
 - Add framework-neutral Action Center primitives.
 - Publish additional example applications beyond commerce.
 - Run documentation snippets in CI.
+- Resource-scoped permissions.
+- Time-limited grants.
+- Task and batch receipts.
+- Native editor-history integration.
+- Visual diff contracts.
+- Publish, export, and delete approval-policy presets.
 
 ## Later
 
@@ -46,6 +54,7 @@ will follow the evidence from real integrations.
 - Evidence exports.
 - Multi-environment and deployment support.
 
-The future adapter API is intentionally not documented as shipped until it is
-implemented, packaged, and exercised in CI. Today, the repository itself is the
-working implementation and WebMCP is its first adapter.
+Future protocol and SDK adapter APIs are intentionally not documented as
+shipped until they are implemented, packaged, and exercised in CI. Today, the
+repository contains the working generic WebMCP adapter; package installation is
+still roadmap work.

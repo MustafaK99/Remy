@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
-import { CopyButton } from "@/components/copy-button";
 import { HeroActionDemo } from "@/components/landing/hero-action-demo";
 import { Quickstart } from "@/components/landing/quickstart";
 import { SiteHeader } from "@/components/site-header";
@@ -55,14 +54,18 @@ export default function Home() {
       <section className="border-b border-white/10">
         <div className="mx-auto max-w-[1240px] px-5 pb-20 pt-16 sm:px-10 sm:pt-24 lg:px-16">
           <div className="max-w-[900px]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-[#e66749]">
+              Open-source TypeScript SDK · WebMCP today
+            </p>
             <h1 className="text-[clamp(3.2rem,6.4vw,5.7rem)] font-medium leading-[0.96] tracking-[-0.068em] text-white">
-              Ship agents users aren&apos;t afraid to trust.
+              Add permissions, approvals, and undo to every action your AI agent takes.
             </h1>
             <p className="mt-7 max-w-[720px] text-base leading-7 text-white/60 sm:text-lg sm:leading-8">
-              Control, receipts, and recovery for AI agent actions.
+              Remy runs reversible work automatically, pauses consequential
+              actions, and gives every change a readable receipt and recovery path.
             </p>
-            <p className="mt-3 text-sm leading-6 text-white/38">
-              Let reversible work happen. Pause what matters. Give users a way back.
+            <p className="mt-3 text-sm leading-6 text-white/45">
+              Wrap your existing functions. Keep your state, authentication, and UI.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -70,41 +73,25 @@ export default function Home() {
                 href="/demo"
                 className="group inline-flex h-12 items-center gap-2 bg-[#f5f5f3] px-5 text-sm font-medium text-[#0a0a0a] transition-colors hover:bg-white/85"
               >
-                Try the demo
+                Try the live demo
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </Link>
               <a
-                href="https://github.com/MustafaK99/Remy"
-                target="_blank"
-                rel="noreferrer"
+                href="/docs"
                 className="group inline-flex h-12 items-center gap-2 border border-white/20 px-5 text-sm font-medium text-white/76 transition-colors hover:border-white/42 hover:text-white"
               >
-                View source
+                Read the docs
                 <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
               </a>
             </div>
 
-            <div className="mt-10 flex max-w-[720px] flex-col gap-3 border-y border-white/10 py-4 sm:flex-row sm:items-center">
-              <span className="w-24 shrink-0 font-mono text-[10px] text-white/35">
-                Run source
-              </span>
-              <div className="flex h-11 min-w-0 flex-1 items-center justify-between gap-4 border border-white/14 bg-white/[0.025] pl-4 pr-2">
-                <code className="truncate font-mono text-[12px] text-white/72">
-                  <span className="mr-2 text-[#e66749]">$</span>
-                  git clone https://github.com/MustafaK99/Remy.git
-                </code>
-                <CopyButton value="git clone https://github.com/MustafaK99/Remy.git" tone="dark" />
-              </div>
-              <Link
-                href="/docs#quickstart"
-                className="group inline-flex h-11 shrink-0 items-center gap-2 px-1 text-xs font-medium text-white/56 hover:text-white sm:px-3"
-              >
-                Local quickstart
-                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            </div>
-            <p className="mt-3 max-w-[720px] font-mono text-[9px] leading-4 text-white/30">
-              Early WebMCP implementation · packages and one-call integration are roadmap work
+            <p className="mt-9 border-l border-[#e66749] pl-4 font-mono text-[11px] leading-5 text-white/65">
+              <span className="text-white/35">Morrow demo result · </span>
+              4 changes → 3 automatic → 1 approval
+            </p>
+            <p className="mt-5 max-w-[720px] text-xs leading-5 text-white/36">
+              Designed for agent actions in documents, design tools, commerce,
+              CRMs, and operational systems.
             </p>
           </div>
 
@@ -325,7 +312,7 @@ export default function Home() {
         <div className="mx-auto flex max-w-[1240px] flex-col justify-between gap-8 px-5 py-16 sm:px-10 md:flex-row md:items-center lg:px-16">
           <div>
             <h2 className="text-2xl font-medium tracking-[-0.04em]">
-              Give agents room to work without asking users to look away.
+              Ship agents users aren&apos;t afraid to trust.
             </h2>
             <p className="mt-3 text-sm text-white/42">
               Try the complete Morrow WebMCP flow or inspect the source guide.
@@ -336,7 +323,7 @@ export default function Home() {
               href="/demo"
               className="group inline-flex h-11 items-center gap-2 bg-white px-4 text-sm font-medium text-black hover:bg-white/85"
             >
-              Try the demo
+              Try the live demo
               <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <Link

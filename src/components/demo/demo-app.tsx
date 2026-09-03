@@ -15,7 +15,6 @@ import {
   UserRound,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { CopyButton } from "@/components/copy-button";
 import {
   getCartTotal,
   getDeliveryCost,
@@ -23,8 +22,8 @@ import {
   getSubtotal,
   type ProductColour,
 } from "@/demo/data";
-import { useWebMCPRegistration } from "@/remy/adapters/webmcp";
-import { RemyProvider, useRemy } from "@/remy/react/provider";
+import { DemoRemyProvider, useDemoRemy } from "@/demo/provider";
+import { useWebMCPRegistration } from "@/remy/adapters/webmcp-react";
 import { ActionCenter } from "./action-center";
 
 const money = new Intl.NumberFormat("en-GB", {
@@ -34,13 +33,12 @@ const money = new Intl.NumberFormat("en-GB", {
 });
 
 function DemoWorkspace() {
-  const { engine, snapshot, runUserAction, reset } = useRemy();
-  const webmcpStatus = useWebMCPRegistration(engine);
+  const { runtime, state, runUserAction, reset } = useDemoRemy();
+  const webmcpStatus = useWebMCPRegistration(runtime.remy);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedColour, setSelectedColour] =
     useState<ProductColour>("Charcoal");
   const [discountCode, setDiscountCode] = useState("");
-  const state = snapshot.state;
   const line = state.cart.line;
   const total = getCartTotal(state);
 
@@ -71,15 +69,6 @@ function DemoWorkspace() {
     setDiscountCode("");
   };
 
-  const webmcpMessage =
-    webmcpStatus === "ready"
-      ? "WebMCP tools ready"
-      : webmcpStatus === "checking"
-        ? "Checking WebMCP support"
-        : webmcpStatus === "unsupported"
-          ? "WebMCP is unavailable in this browser — the shop still works normally"
-          : "WebMCP tools could not register — the shop still works normally";
-
   return (
     <div className="min-h-screen bg-[#f4efe5] text-[#19362e]">
       <div
@@ -87,73 +76,6 @@ function DemoWorkspace() {
           drawerOpen ? "lg:pr-[420px]" : ""
         }`}
       >
-        <div className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a0a] text-white shadow-[0_8px_30px_rgba(10,10,10,.12)]">
-          <div className="mx-auto max-w-[1280px] px-5 py-3 sm:px-8">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <p className="font-mono text-[9px] font-medium uppercase tracking-[0.1em] text-[#e66749]">
-                  Live WebMCP demo
-                </p>
-                <p className="mt-1 text-[11px] leading-4 text-white/48" aria-live="polite">
-                  {webmcpMessage}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-3 text-[11px] font-medium">
-                <button
-                  type="button"
-                  onClick={resetDemo}
-                  className="inline-flex min-h-9 items-center gap-1.5 border border-white/18 px-3 text-white/72 transition-colors hover:border-white/40 hover:text-white"
-                >
-                  <RotateCcw className="size-3.5" /> Reset demo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDrawerOpen(true)}
-                  className="hidden text-white/82 transition-colors hover:text-white sm:block"
-                >
-                  Open Remy
-                </button>
-                <Link href="/" className="hidden text-white/42 transition-colors hover:text-white/80 md:block">
-                  How it works
-                </Link>
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-px border border-white/12 bg-white/12 lg:grid-cols-[1fr_220px]">
-              <div className="flex min-w-0 items-center justify-between gap-3 bg-[#111111] py-2 pl-3 pr-2">
-                <div className="min-w-0">
-                  <span className="mr-2 font-mono text-[8px] uppercase tracking-[0.08em] text-white/32">First</span>
-                  <code className="text-[11px] text-white/76">Add Morrow One in Charcoal, choose express delivery, and apply HELLO10.</code>
-                </div>
-                <CopyButton
-                  value="Add Morrow One in Charcoal, choose express delivery, and apply HELLO10."
-                  label="Copy"
-                  tone="dark"
-                />
-              </div>
-              <div className="flex items-center justify-between gap-3 bg-[#111111] py-2 pl-3 pr-2">
-                <div>
-                  <span className="mr-2 font-mono text-[8px] uppercase tracking-[0.08em] text-white/32">Then</span>
-                  <code className="text-[11px] text-white/76">Buy it.</code>
-                </div>
-                <CopyButton value="Buy it." label="Copy" tone="dark" />
-              </div>
-            </div>
-
-            <div className="mt-2 flex items-center justify-between gap-4 sm:hidden">
-              <button
-                type="button"
-                onClick={() => setDrawerOpen(true)}
-                className="text-white/82 transition-colors hover:text-white"
-              >
-                Open Remy
-              </button>
-              <Link href="/" className="text-white/42 transition-colors hover:text-white/80">
-                How it works
-              </Link>
-            </div>
-          </div>
-        </div>
         <div className="bg-[#19362e] px-4 py-2 text-center font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-[#fffaf0]/75">
           Free delivery over £50 · 30-day returns
         </div>
@@ -181,6 +103,15 @@ function DemoWorkspace() {
               </nav>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={resetDemo}
+                className="mr-1 inline-flex min-h-10 items-center gap-1.5 px-2 text-[11px] font-semibold text-[#65746d] transition-colors hover:text-[#19362e] sm:px-3"
+              >
+                <RotateCcw className="size-3.5" />
+                <span className="hidden sm:inline">Reset demo</span>
+                <span className="sm:hidden">Reset</span>
+              </button>
               <button
                 type="button"
                 aria-label="Search"
@@ -569,8 +500,8 @@ function SummaryLine({
 
 export function DemoApp() {
   return (
-    <RemyProvider>
+    <DemoRemyProvider>
       <DemoWorkspace />
-    </RemyProvider>
+    </DemoRemyProvider>
   );
 }

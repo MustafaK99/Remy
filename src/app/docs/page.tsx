@@ -8,130 +8,185 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "Documentation",
   description:
-    "Run Remy locally and understand its semantic actions, policies, receipts, recovery, WebMCP adapter, and security boundary.",
+    "Define typed Remy actions, apply policy and recovery, and expose them through WebMCP.",
 };
-
-const cloneCommand = "git clone https://github.com/MustafaK99/Remy.git";
 
 const localCommands = `git clone https://github.com/MustafaK99/Remy.git
 cd Remy
 npm ci
 npm run dev`;
 
-const actionCode = `import { z } from "zod"
-import type { DemoState } from "@/demo/data"
-import type { ActionDefinition } from "@/remy/core/types"
+const quickstartCode = `const remy = createRemy({ context: () => documentService })
 
-export const chooseDeliveryAction: ActionDefinition<
-  DemoState,
-  { method: "standard" | "express" }
-> = {
-  name: "choose_delivery",
-  version: "1",
-  title: "Changed delivery",
-  description: "Choose delivery for the current bag.",
-  kind: "mutation",
-  inputSchema: z.object({
-    method: z.enum(["standard", "express"]),
-  }).strict(),
-  inputJsonSchema: {
-    type: "object",
-    properties: {
-      method: { type: "string", enum: ["standard", "express"] },
-    },
-    required: ["method"],
-    additionalProperties: false,
-  },
+const renameDocument = remy.defineAction({
+  name: "rename_document",
+  title: "Rename document",
+  description: "Change the open document title.",
+  kind: "write",
+  input: z.strictObject({ title: z.string().min(1).max(120) }),
   risk: "low",
-  reversibility: "exact",
-  preview: buildDeliveryPreview,
-  execute: setDelivery,
-  undo: restorePreviousDelivery,
-}`;
-
-const completeExample = `import { createDemoEngine } from "@/demo/create-engine"
-
-const remy = createDemoEngine()
-
-const added = await remy.run(
-  "add_to_cart",
-  { productId: "morrow-one", colour: "Charcoal", quantity: 1 },
-  { actor: "agent", transport: "webmcp", idempotencyKey: "demo:add" },
-)
-if (!added.ok) throw new Error(added.error)
-
-const delivery = await remy.run(
-  "choose_delivery",
-  { method: "express" },
-  { actor: "agent", transport: "webmcp", idempotencyKey: "demo:delivery" },
-)
-if (!delivery.ok) throw new Error(delivery.error)
-
-await remy.run(
-  "apply_discount",
-  { code: "HELLO10" },
-  { actor: "agent", transport: "webmcp", idempotencyKey: "demo:discount" },
-)
-
-// Exact undo appends a linked recovery receipt.
-await remy.revert(delivery.actionId, {
-  actor: "user",
-  transport: "manual",
+  preview: previewRename,
+  execute: renameWithExistingService,
+  recovery: { kind: "exact", execute: restorePreviousTitle },
 })
 
-// The purchase uses current application state and waits for approval.
-const purchase = await remy.run(
-  "place_order",
-  {},
-  { actor: "agent", transport: "webmcp", idempotencyKey: "demo:purchase" },
+remy.register(renameDocument)
+await registerWebMCP(remy, { signal })`;
+
+const minimalAction = `import { z } from "zod"
+import { createRemy, succeed } from "@/remy/core"
+
+const remy = createRemy({
+  context: () => documentService,
+})
+
+const renameDocument = remy.defineAction({
+  name: "rename_document",
+  title: "Rename document",
+  description: "Change the open document title.",
+  kind: "write",
+  input: z.strictObject({
+    title: z.string().trim().min(1).max(120),
+  }),
+  risk: "low",
+  preview: ({ input, context }) => ({
+    summary: \`Rename the document to “\${input.title}”.\`,
+    resources: ["document:title"],
+    changes: [{
+      label: "Document title",
+      before: context.getTitle(),
+      after: input.title,
+    }],
+    recovery: { previousTitle: context.getTitle() },
+  }),
+  execute: async ({ input, context }) => {
+    await context.setTitle(input.title)
+    return succeed({ title: context.getTitle() })
+  },
+  recovery: {
+    kind: "exact",
+    execute: async ({ receipt, context }) => {
+      await context.setTitle(receipt.recovery.previousTitle)
+      return succeed({ title: context.getTitle() })
+    },
+  },
+})
+
+remy.register(renameDocument)`;
+
+const typedRun = `const result = await remy.run(
+  renameDocument,
+  { title: "Launch notes" },
+  {
+    actor: "agent",
+    transport: "webmcp",
+    runId: "run-42",
+    taskId: "edit-launch-doc",
+  },
 )
 
-if (purchase.ok && purchase.requiresApproval) {
-  await remy.approve(purchase.actionId)
+if (!result.ok) {
+  console.error(result.code, result.error)
 }`;
 
-const bridgeCode = `"use client"
+const policyCode = `import type { Policy } from "@/remy/core"
 
-import { useWebMCPRegistration } from "@/remy/adapters/webmcp"
-import { useRemy } from "@/remy/react/provider"
-
-export function WebMCPBridge() {
-  const { engine } = useRemy()
-  const status = useWebMCPRegistration(engine)
-
-  return <p aria-live="polite">WebMCP: {status}</p>
+export const documentPolicy: Policy = ({ action, controls }) => {
+  if (controls.paused) {
+    return { outcome: "deny", reason: "Agent changes are paused." }
+  }
+  const missingGrant = action.requiredGrants.find(
+    (grant) => !controls.grants.includes(grant),
+  )
+  if (missingGrant) {
+    return { outcome: "require_approval", reason: "A grant is missing." }
+  }
+  return { outcome: "allow", reason: "Application policy allows it." }
 }`;
 
-const uiCode = `"use client"
+const compensationCode = `recovery: {
+  kind: "compensating",
+  execute: async ({ output, context }) => {
+    const cancellation = await context.cancelBooking(output.id)
+    return cancellation.ok
+      ? succeed({ bookingId: output.id, cancelled: true })
+      : fail("CANCEL_FAILED", cancellation.message)
+  },
+}`;
 
-const [open, setOpen] = useState(false)
-const { engine } = useRemy()
-const status = useWebMCPRegistration(engine)
+const irreversibleCode = `const publishDocument = remy.defineAction({
+  name: "publish_document",
+  title: "Publish document",
+  description: "Publish the current document publicly.",
+  kind: "write",
+  input: z.strictObject({}),
+  risk: "high",
+  approval: "always",
+  preview: () => ({
+    summary: "Publish this document publicly.",
+    changes: [{ label: "Visibility", before: "Draft", after: "Public" }],
+  }),
+  execute: async ({ context }) => succeed(await context.publishDocument()),
+  recovery: { kind: "irreversible" },
+})`;
 
-return (
-  <>
-    <YourApplication />
-    <ActionCenter
-      connectionStatus={status}
-      open={open}
-      onOpenChange={setOpen}
-    />
-  </>
-)`;
+const webMcpCode = `import { registerWebMCP } from "@/remy/adapters/webmcp"
+
+const lifecycle = new AbortController()
+const registration = await registerWebMCP(remy, {
+  signal: lifecycle.signal,
+})
+
+if (registration.status === "partial") {
+  console.error(registration.failures)
+}
+
+// Unregister every tool when this integration unmounts.
+lifecycle.abort()`;
+
+const reactCode = `"use client"
+
+import type { RemyClient } from "@/remy/core"
+import { useRemySnapshot } from "@/remy/react"
+
+export function AgentActivity({
+  remy,
+}: {
+  readonly remy: RemyClient<unknown>
+}) {
+  const snapshot = useRemySnapshot(remy)
+  const agentReceipts = snapshot.receipts.filter(
+    (receipt) => receipt.actor === "agent" || receipt.reversesReceiptId,
+  )
+
+  return (
+    <ol aria-label="Agent activity">
+      {agentReceipts.map((receipt) => (
+        <li key={receipt.id}>
+          {receipt.summary} — {receipt.status}
+        </li>
+      ))}
+    </ol>
+  )
+}`;
 
 const navigation = [
-  ["What Remy solves", "#solves"],
-  ["Local quickstart", "#quickstart"],
-  ["Working demo", "#demo"],
+  ["Introduction", "#introduction"],
+  ["Five-minute quickstart", "#quickstart"],
+  ["Core concepts", "#concepts"],
   ["Define an action", "#define"],
-  ["Recovery model", "#recovery"],
-  ["Autonomy policy", "#policy"],
-  ["WebMCP", "#webmcp"],
-  ["Action Center", "#ui"],
-  ["Test the flow", "#testing"],
-  ["Security checklist", "#security"],
+  ["Policy and capabilities", "#policy"],
+  ["Exact recovery", "#exact"],
+  ["Compensation", "#compensation"],
+  ["Irreversible actions", "#irreversible"],
+  ["WebMCP adapter", "#webmcp"],
+  ["React integration", "#react"],
+  ["Persistence and privacy", "#persistence"],
+  ["Testing", "#testing"],
+  ["Production checklist", "#security"],
   ["API reference", "#api"],
   ["Troubleshooting", "#troubleshooting"],
+  ["Roadmap and versioning", "#roadmap"],
 ];
 
 export default function DocsPage() {
@@ -143,7 +198,7 @@ export default function DocsPage() {
         <aside className="hidden lg:block">
           <div className="sticky top-8">
             <p className="font-mono text-[9px] font-medium uppercase tracking-[0.1em] text-[#8a8e88]">
-              Documentation
+              Alpha documentation
             </p>
             <nav className="mt-5 border-l border-[#17241f]/12" aria-label="Documentation sections">
               {navigation.map(([label, href], index) => (
@@ -174,247 +229,298 @@ export default function DocsPage() {
         </aside>
 
         <article className="min-w-0 max-w-[860px]">
-          <p className="font-mono text-[10px] text-[#767d77]">Remy · early WebMCP implementation</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.1em] text-[#d95839]">
+            Open-source TypeScript alpha · WebMCP today
+          </p>
           <h1 className="mt-5 max-w-[780px] text-5xl font-semibold leading-[0.98] tracking-[-0.06em] sm:text-7xl">
-            Control, receipts, and recovery for agent actions.
+            Add control and recovery to actions—not model responses.
           </h1>
           <p className="mt-6 max-w-[700px] text-base leading-7 text-[#667069]">
-            This guide starts with the working Morrow repository, then explains
-            the real engine contract and its current boundaries. Nothing here
-            depends on unpublished packages.
+            Define an application action once. Remy adds policy, approval,
+            receipts, and recovery, then exposes it through WebMCP today and
+            other adapters later.
           </p>
-
-          <div className="mt-8 max-w-[700px]">
-            <CodeLine value={cloneCommand} />
-            <p className="mt-3 text-xs leading-5 text-[#7c837d]">
-              The intended npm packages and one-call integration are roadmap
-              items. For this release, clone and run the verified source.
-            </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link href="#quickstart" className="inline-flex h-11 items-center gap-2 bg-[#17241f] px-4 text-sm font-medium text-white hover:bg-[#294238]">
+              Start locally <ArrowRight className="size-4" />
+            </Link>
+            <a href="https://github.com/MustafaK99/Remy/blob/master/examples/minimal.ts" target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 border border-[#17241f]/20 px-4 text-sm font-medium hover:border-[#17241f]/45">
+              Complete example <ArrowRight className="size-4" />
+            </a>
           </div>
 
-          <DocSection id="solves" number="01" title="What Remy solves">
+          <DocSection id="introduction" number="01" title="Introduction">
             <p>
-              Agent products often choose between asking before every state
-              change and granting opaque autonomy. Remy creates the middle:
-              reversible work can run, consequential work pauses, and every
-              meaningful attempt leaves a readable receipt.
+              Remy wraps the functions and services an application already
+              uses. Your application continues to own its data, authentication,
+              authorisation, editor history, side effects, and interface.
             </p>
             <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="Your application" detail="Owns business state, authentication, authorisation, eligibility, totals, and UI." />
-              <DocRow name="Remy" detail="Validates, previews, applies policy, executes or pauses, journals, and exposes recovery." />
-              <DocRow name="Adapter" detail="Exposes those semantic actions to WebMCP today; other runtimes are planned." />
+              <DocRow name="Safe work" detail="Low-risk, recoverable actions can run without an interruption." />
+              <DocRow name="Consequential work" detail="Policy pauses the action and returns an explicit approval state." />
+              <DocRow name="After execution" detail="A bounded semantic receipt explains what changed and how it can be recovered." />
             </div>
             <Callout tone="success">
-              Remy is for applications where agents change real state. Read-only
-              chatbots do not need this control layer.
+              Remy controls state-changing actions. It does not record prompts,
+              browse the DOM, or govern model responses.
             </Callout>
           </DocSection>
 
-          <DocSection id="quickstart" number="02" title="Five-minute local quickstart">
-            <p>Run these commands from a terminal with Node.js 20 or newer:</p>
+          <DocSection id="quickstart" number="02" title="Five-minute quickstart">
+            <p>
+              Packages are not published yet. Run the verified source with
+              Node.js 20 or newer:
+            </p>
             <CodeBlock value={localCommands} filename="Terminal" />
             <p className="mt-5">
-              Open <InlineCode>http://localhost:3000/demo</InlineCode>. The shop
-              works in every modern browser. WebMCP tool calls require a browser
-              or evaluator that implements the imperative API.
+              Open <InlineCode>http://localhost:3000/demo</InlineCode>. Then read
+              the complete, compilable <a href="https://github.com/MustafaK99/Remy/blob/master/examples/minimal.ts" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">document example</a>.
+              The whole setup is this shape:
             </p>
+            <CodeBlock value={quickstartCode} filename="Five-minute shape" />
+            <div className="mt-6 border-t border-[#17241f]/12">
+              <DocRow name="Run" detail="Clone the alpha source; no package install is claimed yet." />
+              <DocRow name="Define" detail="Pass one schema and wrap existing preview, execute, and recovery functions." />
+              <DocRow name="Expose" detail="registerWebMCP creates imperative tools and uses the same runtime validation." />
+              <DocRow name="Approve" detail="A paused run returns awaiting_approval; render that receipt in your own UI." />
+              <DocRow name="Recover" detail="Exact or compensating handlers receive typed recovery data and execution output." />
+              <DocRow name="Enforce" detail="Keep authentication, authorisation, and side effects authoritative in the host service." />
+            </div>
             <Callout>
               Do not run <InlineCode>npx @remy-ai/cli init</InlineCode>. The
-              packages referenced by that prototype are not published.
+              one-call install and public packages are planned, not shipped.
             </Callout>
           </DocSection>
 
-          <DocSection id="demo" number="03" title="Run the working demo">
-            <p>
-              Start clean with the always-visible <strong>Reset demo</strong>
-              control. Select <strong>Reversible actions</strong>, then send the
-              two prompts separately.
-            </p>
-            <div className="mt-6 space-y-3">
-              <PromptLine label="First" value="Add Morrow One in Charcoal, choose express delivery, and apply HELLO10." />
-              <PromptLine label="Then" value="Buy it." />
-            </div>
-            <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="Ask on changes" detail="Four state changes create four approval interruptions in this demo." />
-              <DocRow name="Reversible actions" detail="The first three changes run automatically; the purchase creates one approval." />
-              <DocRow name="Measured result" detail="75% fewer approval interruptions in this demo: four approvals become one." />
-            </div>
-            <Link href="/demo" className="group mt-6 inline-flex h-11 items-center gap-2 bg-[#17241f] px-4 text-sm font-medium text-white hover:bg-[#294238]">
-              Open the Morrow demo
-              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          </DocSection>
-
-          <DocSection id="define" number="04" title="Define a semantic action">
-            <p>
-              Model the user-visible operation, not a click or raw request. The
-              real Morrow action below declares strict input, risk, preview,
-              execution, and exact recovery through the current
-              <InlineCode>ActionDefinition</InlineCode> API.
-            </p>
-            <CodeBlock value={actionCode} filename="src/demo/actions.ts" />
-            <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="inputSchema" detail="Runtime validation. Keep schemas strict and inputs compact." code />
-              <DocRow name="preview" detail="Describe affected resources and before/after state without mutation." code />
-              <DocRow name="execute" detail="Perform the authoritative application operation only after policy allows it." code />
-              <DocRow name="undo / compensate" detail="Provide exactly one truthful recovery model when recovery exists." code />
+          <DocSection id="concepts" number="03" title="Core concepts">
+            <div className="border-t border-[#17241f]/12">
+              <DocRow name="Application context" detail="A function returning your existing services. Remy never owns application state." />
+              <DocRow name="Action" detail="A typed semantic operation with input, preview, execution, risk, and truthful recovery." />
+              <DocRow name="Policy" detail="A replaceable function that allows, stages, denies, or asks for approval." />
+              <DocRow name="Receipt" detail="A bounded, human-readable record of the decision and state change." />
+              <DocRow name="Journal" detail="Append-only receipt and event persistence, independent from application persistence." />
+              <DocRow name="Adapter" detail="A protocol translator. It exposes actions but does not contain business policy." />
             </div>
           </DocSection>
 
-          <DocSection id="recovery" number="05" title="Choose the recovery model">
-            <p>Recovery is a semantic contract, not a generic Undo button.</p>
-            <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="Exact undo" detail="Restore an earlier value after a resource-version check. Example: express delivery back to standard." />
-              <DocRow name="Compensation" detail="Perform a new corrective action. Example: cancel a booking that already exists." />
-              <DocRow name="Irreversible" detail="Expose no false reversal. Example: placing an order and charging a payment method." />
-            </div>
-            <Callout tone="success">
-              Recovery never deletes history. The original receipt remains and
-              a new receipt links back with <InlineCode>reversesReceiptId</InlineCode>.
-            </Callout>
-          </DocSection>
-
-          <DocSection id="policy" number="06" title="Apply an autonomy policy">
+          <DocSection id="define" number="04" title="Define an action">
             <p>
-              The engine combines the developer&apos;s action definition with the
-              user&apos;s current control setting. An assistant may request more
-              access, but the person must approve any escalation.
+              Call <InlineCode>remy.defineAction()</InlineCode> so the context,
+              schema input, execution output, and recovery material are inferred.
+              Pass one Standard Schema V1 validator. Zod 4 provides runtime
+              validation and WebMCP JSON Schema from that same object.
             </p>
-            <div className="mt-6 overflow-x-auto border-y border-[#17241f]/12">
-              <table className="w-full min-w-[620px] border-collapse text-left text-sm">
-                <thead className="font-mono text-[9px] uppercase tracking-[0.08em] text-[#7a817b]">
-                  <tr>
-                    <th className="py-3 pr-4 font-medium">User mode</th>
-                    <th className="py-3 pr-4 font-medium">Exact reversal</th>
-                    <th className="py-3 font-medium">Irreversible action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#17241f]/10">
-                  <PolicyRow mode="Preview only" reversible="Preview" consequential="Preview" />
-                  <PolicyRow mode="Ask on changes" reversible="Ask" consequential="Ask" />
-                  <PolicyRow mode="Reversible actions" reversible="Run" consequential="Ask" />
-                  <PolicyRow mode="Trusted run" reversible="Run" consequential="Developer policy" />
-                </tbody>
-              </table>
-            </div>
-            <Callout>
-              In the demo, unattended purchases require Trusted run plus a
-              separate user-granted purchase setting. They are never implied by
-              selecting Reversible actions.
-            </Callout>
-          </DocSection>
-
-          <DocSection id="webmcp" number="07" title="Expose actions through WebMCP">
-            <p>
-              The current hook feature-detects <InlineCode>document.modelContext</InlineCode>,
-              registers tools once, validates input through each action schema,
-              and unregisters them with an <InlineCode>AbortSignal</InlineCode>.
-            </p>
-            <CodeBlock value={bridgeCode} filename="Client component" />
+            <CodeBlock value={minimalAction} filename="examples/minimal.ts (abridged)" />
+            <CodeBlock value={typedRun} filename="Run with inferred input and output" />
             <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="get_remy_status" detail="Detect Remy and read current user controls." code />
-              <DocRow name="identify_assistant" detail="Set self-reported attribution; never grants authorisation." code />
-              <DocRow name="request_remy_controls" detail="Restrictions apply immediately; increased access waits for the user." code />
-              <DocRow name="get_action_history" detail="Return concise action receipts, not prompts or browsing history." code />
-              <DocRow name="revert_action" detail="Request version-safe recovery by receipt ID." code />
+              <DocRow name="input" detail="One strict schema. Use jsonSchema only when the validator cannot expose a representable schema." code />
+              <DocRow name="preview" detail="Describe bounded resources and human-readable changes without mutating state." code />
+              <DocRow name="execute" detail="Call the existing application function and return succeed(value) or fail(code, message)." code />
+              <DocRow name="redactInput" detail="Explicitly allowlist compact receipt fields; raw input is private by default." code />
+              <DocRow name="exposeOutput" detail="Explicitly select the JSON-safe output returned through protocol adapters." code />
             </div>
             <Callout tone="warning">
-              Current limitation: this adapter is coupled to Morrow&apos;s
-              <InlineCode>DemoState</InlineCode>. A generic packaged adapter is
-              on the roadmap and is not presented as shipped.
+              Authentication, authorisation, prices, permissions, and durable
+              idempotency must still be enforced by the authoritative server.
             </Callout>
           </DocSection>
 
-          <DocSection id="ui" number="08" title="Embed the Action Center">
+          <DocSection id="policy" number="05" title="Policy and capabilities">
             <p>
-              Remy&apos;s engine is headless. The Morrow drawer is one example of a
-              control surface; applications may use a drawer, account page,
-              inline approval, toast, or no Remy-branded UI.
+              Built-in preview, ask, reversible, and trusted modes are presets.
+              Supply a custom policy when the application needs different rules.
+              Capabilities are generic strings such as
+              <InlineCode>documents.publish</InlineCode> or
+              <InlineCode>commerce.purchase</InlineCode>.
             </p>
-            <CodeBlock value={uiCode} filename="Demo workspace" />
+            <CodeBlock value={policyCode} filename="Custom policy" />
             <p className="mt-5">
-              The panel can open and close without covering the application on
-              desktop. When hidden, its dock still reports waiting approvals and
-              new agent changes. Ordinary site controls remain usable.
+              Agent principals include an assurance level. The WebMCP identity
+              tool creates <InlineCode>self-reported</InlineCode> attribution and
+              never grants authority. Authenticated or verified principals must
+              come from a trusted host integration.
+            </p>
+            <p className="mt-4 text-xs">
+              Compilable source: <a href="https://github.com/MustafaK99/Remy/blob/master/examples/policy.ts" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">examples/policy.ts</a>
             </p>
           </DocSection>
 
-          <DocSection id="testing" number="09" title="Test approvals and reversals">
-            <p>Run the focused engine tests and then the full release checks:</p>
-            <CodeBlock value={`npm run test:run
-npm run lint
+          <DocSection id="exact" number="06" title="Exact recovery">
+            <p>
+              Exact recovery restores the previous state. The preview returns
+              typed private recovery material; the recovery handler consumes it.
+              Remy checks declared resource versions first and appends a linked
+              receipt instead of deleting the original.
+            </p>
+            <Callout tone="success">
+              In an editor, a native history token can be the recovery material.
+              The host editor still owns and validates that history.
+            </Callout>
+          </DocSection>
+
+          <DocSection id="compensation" number="07" title="Compensation">
+            <p>
+              Some effects cannot be rewound. A compensating recovery performs a
+              new corrective action, such as cancelling a booking.
+            </p>
+            <CodeBlock value={compensationCode} filename="Compensating recovery" />
+            <p className="mt-5">
+              Label this as cancellation or compensation in the interface—not
+              “undo.” Both the original and corrective receipts remain visible.
+            </p>
+            <p className="mt-4 text-xs">
+              Compilable source: <a href="https://github.com/MustafaK99/Remy/blob/master/examples/action-variants.ts" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">examples/action-variants.ts</a>
+            </p>
+          </DocSection>
+
+          <DocSection id="irreversible" number="08" title="Irreversible actions">
+            <p>
+              Irreversible definitions expose no recovery handler. TypeScript
+              rejects a fake undo on this branch of the action union. Use an
+              explicit approval for genuinely consequential work.
+            </p>
+            <CodeBlock value={irreversibleCode} filename="Irreversible action" />
+            <p className="mt-4 text-xs">
+              Compilable source: <a href="https://github.com/MustafaK99/Remy/blob/master/examples/action-variants.ts" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">examples/action-variants.ts</a>
+            </p>
+          </DocSection>
+
+          <DocSection id="webmcp" number="09" title="WebMCP adapter">
+            <p>
+              The headless adapter imports only public core contracts. It feature
+              detects <InlineCode>document.modelContext</InlineCode>, converts the
+              action schema, registers each tool once, validates input again at
+              execution, and reports partial registration failures.
+            </p>
+            <CodeBlock value={webMcpCode} filename="Headless registration" />
+            <div className="mt-6 border-t border-[#17241f]/12">
+              <DocRow name="get_remy_status" detail="Read controls and attribution without changing application state." code />
+              <DocRow name="identify_assistant" detail="Attach self-reported identity for receipts; never authorisation." code />
+              <DocRow name="request_remy_controls" detail="Restrictions apply; requests for more authority wait for the person." code />
+              <DocRow name="get_action_history" detail="Return compact agent-action receipts, not browsing or transcripts." code />
+              <DocRow name="revert_action" detail="Request version-safe exact or compensating recovery." code />
+            </div>
+            <Callout>
+              Unsupported browsers return <InlineCode>unsupported</InlineCode>.
+              The application and manual controls continue to work normally.
+            </Callout>
+          </DocSection>
+
+          <DocSection id="react" number="10" title="React integration">
+            <p>
+              React is optional. <InlineCode>useRemySnapshot(remy)</InlineCode>
+              uses the engine as a proper external store with stable subscriptions
+              and referentially stable snapshots. Build any accessible approval
+              surface your product needs.
+            </p>
+            <CodeBlock value={reactCode} filename="Client component" />
+            <p className="mt-5">
+              The Morrow drawer is demo UI, not a required Remy design. Agent
+              activity excludes ordinary user clicks; developer run summaries
+              belong in developer tooling, not the end-user action panel.
+            </p>
+            <p className="mt-4 text-xs">
+              Compilable source: <a href="https://github.com/MustafaK99/Remy/blob/master/examples/react-action-center.tsx" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">examples/react-action-center.tsx</a>
+            </p>
+          </DocSection>
+
+          <DocSection id="persistence" number="11" title="Persistence and privacy">
+            <p>
+              The application and Remy have separate persistence boundaries.
+              Remy stores schema-versioned semantic receipts and journal events;
+              the Morrow demo stores its fictional shop state separately.
+            </p>
+            <div className="mt-6 border-t border-[#17241f]/12">
+              <DocRow name="Stored" detail="Action/version, IDs, bounded actor, decision, summary, allowlisted changes, resource versions, status, time, duration, error code, and recovery links." />
+              <DocRow name="Private in memory" detail="Validated input, execution output, pending execution data, and recovery material." />
+              <DocRow name="Never by default" detail="Application state, raw input/output, prompts, transcripts, DOM recordings, secrets, payment details, or binary payloads." />
+            </div>
+            <p className="mt-5">
+              Use <InlineCode>createMemoryJournalStore()</InlineCode> or the safe,
+              namespaced <InlineCode>createBrowserJournalStore()</InlineCode>.
+              Browser restore validates version 1 data and fails closed on corrupt
+              or incompatible payloads. Durable recovery needs an explicit,
+              redacted application serializer in a future store integration.
+            </p>
+          </DocSection>
+
+          <DocSection id="testing" number="12" title="Testing">
+            <p>Run the same checks used in CI:</p>
+            <CodeBlock value={`npm run lint
 npm run typecheck
+npm run test:run
 npm run build`} filename="Terminal" />
             <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="Approval" detail="The order remains unplaced until its explicit approval executes." />
-              <DocRow name="Stale approval" detail="Changing a referenced resource invalidates an old purchase preview." />
-              <DocRow name="Exact reversal" detail="The prior value returns and a linked receipt is appended." />
-              <DocRow name="Version conflict" detail="Undo fails closed if a later change makes the inverse unsafe." />
-              <DocRow name="Idempotency" detail="Repeating the same key does not repeat the effect." />
+              <DocRow name="Types" detail="Check inferred input/output and invalid recovery combinations with @ts-expect-error assertions." />
+              <DocRow name="Policy" detail="Test allow, stage, deny, approvals, capabilities, and custom policy injection." />
+              <DocRow name="State safety" detail="Test stale approvals, version conflicts, idempotency, linked recovery, and safe restoration." />
+              <DocRow name="Adapters" detail="Register a non-commerce action, execute it, and abort every registration during cleanup." />
             </div>
           </DocSection>
 
-          <DocSection id="security" number="10" title="Production security checklist">
-            <p>
-              Remy&apos;s policy UI is not a substitute for enforcement at the
-              system that owns the data or side effect.
-            </p>
+          <DocSection id="security" number="13" title="Production checklist">
             <Checklist
               items={[
-                "Authenticate and authorise every real state-changing endpoint on the server.",
-                "Recompute prices, eligibility, and resource versions from authoritative application state.",
-                "Use strict runtime schemas and explicitly allowlist or redact receipt input.",
-                "Keep secrets, credentials, payment details, prompts, transcripts, and arbitrary state out of receipts.",
-                "Protect cookie-authenticated writes against CSRF and rate-limit abuse-prone actions.",
-                "Use idempotency at the real side-effect boundary, not only in browser memory.",
-                "Fail closed when approval context or resource versions are stale.",
-                "Set retention and deletion policy before connecting durable storage.",
-                "Use production builds, HTTPS, and appropriate security headers at the deployment edge.",
+                "Authenticate and authorise each state-changing operation at the server or owning service.",
+                "Recompute totals, eligibility, permissions, and versions from authoritative state.",
+                "Use strict schemas and allowlist only receipt fields safe for operators and users.",
+                "Keep credentials, payment details, prompts, transcripts, and application snapshots out of the journal.",
+                "Apply CSRF protection to cookie-authenticated writes and rate-limit abuse-prone operations.",
+                "Enforce idempotency at the real side-effect boundary, not only inside a browser tab.",
+                "Fail closed when approval context, recovery material, or resource versions are stale.",
+                "Set retention, export, and deletion rules before connecting durable storage.",
+                "Treat self-reported WebMCP identity as attribution only.",
               ]}
             />
-            <Callout tone="warning">
-              The demo stores fictional state and receipts in local storage.
-              Local storage is inspectable and mutable; it is not an audit-grade
-              or tamper-resistant journal.
-            </Callout>
           </DocSection>
 
-          <DocSection id="api" number="11" title="Current API reference">
-            <p>
-              These are the source APIs exercised by the repository today. They
-              are not yet versioned npm package exports.
-            </p>
+          <DocSection id="api" number="14" title="API reference">
+            <p>These alpha exports are curated from <InlineCode>@/remy/core</InlineCode> in this repository.</p>
             <div className="mt-6 border-t border-[#17241f]/12">
-              <DocRow name="new RemyEngine(store, options)" detail="Create the protocol-neutral action engine." code />
-              <DocRow name="engine.register(action)" detail="Register one ActionDefinition; duplicate names throw." code />
-              <DocRow name="engine.run(name, input, meta)" detail="Validate, preview, decide policy, and execute or pause." code />
-              <DocRow name="engine.approve(actionId)" detail="Recheck resource versions before executing a waiting action." code />
-              <DocRow name="engine.reject(actionId)" detail="Append a rejection without changing application state." code />
-              <DocRow name="engine.revert(actionId, meta)" detail="Perform exact undo or compensation and append a linked receipt." code />
-              <DocRow name="engine.getSnapshot()" detail="Read state, receipts, events, controls, agent identity, and pending access request." code />
-              <DocRow name="summarizeActionRun(receipts)" detail="Count state-changing actions, automatic execution, approvals, recovery, and unresolved outcomes." code />
+              <DocRow name="createRemy(options)" detail="Create a generic client around a host-owned context, policy, resources, and journal." code />
+              <DocRow name="remy.defineAction(definition)" detail="Infer context, input, output, and recovery types and validate configuration early." code />
+              <DocRow name="remy.register(action)" detail="Register one definition. Duplicate action names throw an actionable error." code />
+              <DocRow name="remy.run(action, input, meta?)" detail="Typed application execution. Input and success output follow the action." code />
+              <DocRow name="remy.runByName(name, unknown, meta?)" detail="Runtime-validated string dispatch for protocol adapters." code />
+              <DocRow name="remy.approve(id) / reject(id)" detail="Resolve staged or waiting work after validating its current state." code />
+              <DocRow name="remy.revert(id, meta?)" detail="Run exact or compensating recovery and append a linked receipt." code />
+              <DocRow name="registerWebMCP(remy, options?)" detail="Register generic tools and return ready, partial, unsupported, or error status." code />
+              <DocRow name="useRemySnapshot(remy)" detail="Subscribe to cached external-store snapshots from a client component." code />
+              <DocRow name="summarizeActionRun(receipts)" detail="Derive action-only developer metrics; it is not required end-user UI." code />
             </div>
-            <CodeBlock value={completeExample} filename="Complete in-repository example" />
-            <Callout>
-              Read <a href="https://github.com/MustafaK99/Remy/blob/master/ROADMAP.md" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">ROADMAP.md</a> for the planned package split and adapter API. Future syntax is not shown here as current code.
-            </Callout>
           </DocSection>
 
-          <DocSection id="troubleshooting" number="12" title="Troubleshooting">
+          <DocSection id="troubleshooting" number="15" title="Troubleshooting">
             <div className="border-t border-[#17241f]/12">
-              <DocRow name="WebMCP unavailable" detail="Use a browser or evaluator with the imperative API. The normal shop should remain usable." />
-              <DocRow name="No tools appear" detail="Open /demo, wait for WebMCP tools ready, and verify document.modelContext.registerTool exists." />
-              <DocRow name="Approval is out of date" detail="Application state changed after preview. Ask the assistant to prepare the purchase again." />
-              <DocRow name="Undo is blocked" detail="A later resource version conflicts with the original receipt; recover manually or define compensation." />
-              <DocRow name="Old demo state remains" detail="Use Reset demo. It clears state, receipts, approvals, controls, and assistant identity." />
-              <DocRow name="CLI install fails" detail="Expected for this release. Clone the repository; published packages are roadmap work." />
+              <DocRow name="WebMCP unsupported" detail="The browser does not expose document.modelContext. Manual application use should still work." />
+              <DocRow name="Schema registration failed" detail="Use a Standard Schema implementation with JSON Schema support or pass a restrictive jsonSchema override." />
+              <DocRow name="ACTION_NOT_REGISTERED" detail="Call remy.register(action), then pass that same action object to remy.run()." />
+              <DocRow name="STALE_APPROVAL" detail="A referenced resource changed after preview. Prepare the action again." />
+              <DocRow name="VERSION_CONFLICT" detail="Later state makes exact recovery unsafe. Use an application-specific corrective path." />
+              <DocRow name="RECOVERY_DATA_UNAVAILABLE" detail="Private recovery material is not persisted by default. Prepare a corrective action after reload." />
+              <DocRow name="CLI install fails" detail="Expected in this alpha. Clone the repository; public packages are roadmap work." />
+            </div>
+          </DocSection>
+
+          <DocSection id="roadmap" number="16" title="Roadmap and versioning">
+            <p>
+              Receipts carry <InlineCode>schemaVersion: 1</InlineCode>; action
+              definitions have their own version. The source API is alpha and may
+              still change before the packages are published. The boundary is
+              intentionally stable: host services → semantic actions → Remy core
+              → adapters and optional UI.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-4">
+              <a href="https://github.com/MustafaK99/Remy/blob/master/ARCHITECTURE.md" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">Architecture</a>
+              <a href="https://github.com/MustafaK99/Remy/blob/master/ROADMAP.md" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">Roadmap</a>
+              <a href="https://github.com/MustafaK99/Remy/blob/master/SECURITY.md" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">Security policy</a>
             </div>
           </DocSection>
 
           <div className="mt-16 flex flex-col justify-between gap-6 border-t border-[#17241f]/12 pt-8 sm:flex-row sm:items-center">
             <div>
-              <p className="font-medium">Agents can act now. Remy lets them ask less—and gives users a way back.</p>
-              <p className="mt-1 text-sm text-[#747c76]">The Morrow shop uses fictional data and creates no real payment.</p>
+              <p className="font-medium">Ship agents users aren&apos;t afraid to trust.</p>
+              <p className="mt-1 text-sm text-[#747c76]">Try policy, approval, receipts, and recovery in the Morrow demo.</p>
             </div>
             <Link href="/demo" className="group inline-flex h-11 w-fit items-center gap-2 bg-[#17241f] px-4 text-sm font-medium text-white hover:bg-[#294238]">
               Open the live demo
@@ -439,24 +545,6 @@ function DocSection({ id, number, title, children }: { id: string; number: strin
   );
 }
 
-function CodeLine({ value }: { value: string }) {
-  return (
-    <div className="flex min-h-12 items-center justify-between gap-4 border border-[#17241f] bg-[#111714] p-2 pl-4 text-white">
-      <code className="min-w-0 truncate font-mono text-xs sm:text-sm"><span className="mr-3 text-[#e66749]">$</span>{value}</code>
-      <CopyButton value={value} tone="dark" />
-    </div>
-  );
-}
-
-function PromptLine({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border border-[#17241f]/14 bg-[#ebe6dc] p-2 pl-4">
-      <p className="min-w-0 text-xs"><span className="mr-3 font-mono text-[9px] uppercase text-[#8a6a5e]">{label}</span>{value}</p>
-      <CopyButton value={value} label="Copy" />
-    </div>
-  );
-}
-
 function CodeBlock({ value, filename }: { value: string; filename: string }) {
   return (
     <div className="mt-6 overflow-hidden border border-[#17241f]/15 bg-[#111714] text-white">
@@ -471,20 +559,10 @@ function CodeBlock({ value, filename }: { value: string; filename: string }) {
 
 function DocRow({ name, detail, code = false }: { name: string; detail: string; code?: boolean }) {
   return (
-    <div className="grid gap-2 border-b border-[#17241f]/12 py-4 sm:grid-cols-[210px_1fr]">
+    <div className="grid gap-2 border-b border-[#17241f]/12 py-4 sm:grid-cols-[220px_1fr]">
       {code ? <code className="font-mono text-[11px] font-medium text-[#32483f]">{name}</code> : <span className="text-sm font-medium text-[#304139]">{name}</span>}
       <span className="text-sm leading-6 text-[#717a74]">{detail}</span>
     </div>
-  );
-}
-
-function PolicyRow({ mode, reversible, consequential }: { mode: string; reversible: string; consequential: string }) {
-  return (
-    <tr>
-      <th className="py-3 pr-4 font-medium text-[#31443b]">{mode}</th>
-      <td className="py-3 pr-4 text-[#6f7872]">{reversible}</td>
-      <td className="py-3 text-[#6f7872]">{consequential}</td>
-    </tr>
   );
 }
 

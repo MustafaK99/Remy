@@ -1,4 +1,4 @@
-import type { ActionReceipt } from "./types";
+import type { ActionReceipt } from "./public-types";
 
 export type ActionRunSummary = {
   changes: number;
@@ -16,10 +16,7 @@ const unresolvedStatuses = new Set([
 ]);
 
 function isStateChanging(receipt: ActionReceipt) {
-  // actionKind is present on new receipts. The diff fallback keeps summaries
-  // useful for local snapshots created before this field was introduced.
-  return receipt.actionKind === "mutation" ||
-    (receipt.actionKind === undefined && receipt.diff.length > 0);
+  return receipt.action.kind === "write";
 }
 
 export function summarizeActionRun(

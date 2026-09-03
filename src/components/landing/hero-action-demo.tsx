@@ -29,7 +29,13 @@ const autonomyModes = [
 ];
 
 type ReceiptId = "cart" | "delivery" | "discount" | "purchase" | "recovery";
-type ReceiptStatus = "Done" | "Waiting" | "Would ask" | "Preview" | "Recovered";
+type ReceiptStatus =
+  | "Automatic"
+  | "Complete"
+  | "Waiting for you"
+  | "Would ask"
+  | "Preview"
+  | "Recovered";
 
 type TimelineItem = {
   id: ReceiptId;
@@ -53,7 +59,7 @@ export function HeroActionDemo() {
     ? "Preview"
     : isAsk
       ? "Would ask"
-      : "Done";
+      : "Automatic";
 
   const timeline: TimelineItem[] = [
     {
@@ -82,12 +88,12 @@ export function HeroActionDemo() {
       title: purchaseApproved ? "Order placed" : `Purchase £${total}`,
       detail: purchaseApproved ? "Order MO-2048 confirmed" : "Saved Visa ending 4242",
       status: purchaseApproved
-        ? "Done"
+        ? "Complete"
         : isPreview
           ? "Preview"
           : isAsk
             ? "Would ask"
-            : "Waiting",
+            : "Waiting for you",
       recovery: "Irreversible",
     },
   ];
@@ -97,13 +103,10 @@ export function HeroActionDemo() {
       id: "recovery",
       title: "Delivery restored to standard",
       detail: "Express · £8 → Standard · Free",
-      status: "Done",
+      status: "Complete",
       recovery: "Linked to #02",
     });
   }
-
-  const automatic = modeIndex >= 2 ? 3 : 0;
-  const approvals = isAsk ? 4 : isPreview ? 0 : 1;
 
   function reset() {
     setModeIndex(2);
@@ -123,10 +126,10 @@ export function HeroActionDemo() {
       <div className="flex min-h-14 items-center justify-between gap-4 border-b border-[#17241f]/12 bg-[#f6f2ea] px-4 sm:px-6">
         <div>
           <p className="text-sm font-semibold tracking-[-0.025em]">
-            Four changes. One interruption. Nothing hidden.
+            Morrow demo · Reversible actions
           </p>
           <p className="mt-0.5 hidden text-[10px] text-[#68736d] sm:block">
-            75% fewer approval interruptions in this demo: four approvals become one.
+            The agent completes three reversible changes. Remy pauses the purchase.
           </p>
         </div>
         <button
@@ -251,12 +254,6 @@ export function HeroActionDemo() {
               </p>
             </div>
 
-            <div className="mt-5 grid grid-cols-4 border-y border-[#17241f]/12 py-3 text-center">
-              <DemoStat value="4" label="Changes" />
-              <DemoStat value={String(automatic)} label="Automatic" />
-              <DemoStat value={String(approvals)} label="Approval" />
-              <DemoStat value={deliveryRestored ? "1" : "0"} label="Recovered" />
-            </div>
           </div>
 
           <div className="divide-y divide-[#17241f]/10">
@@ -293,7 +290,7 @@ export function HeroActionDemo() {
 }
 
 function TimelineRow({ item, selected, onSelect }: { item: TimelineItem; selected: boolean; onSelect: () => void }) {
-  const waiting = item.status === "Waiting" || item.status === "Would ask";
+  const waiting = item.status === "Waiting for you" || item.status === "Would ask";
   const preview = item.status === "Preview";
 
   return (
@@ -374,15 +371,6 @@ function SummaryLine({ label, value, strong = false, accent = false }: { label: 
     <div className="flex items-center justify-between border-b border-[#17241f]/10 py-2.5 last:border-b-0">
       <dt className={strong ? "font-semibold" : "text-[#647169]"}>{label}</dt>
       <dd className={strong ? "font-semibold" : accent ? "font-medium text-[#28735b]" : "font-medium"}>{value}</dd>
-    </div>
-  );
-}
-
-function DemoStat({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="border-r border-[#17241f]/10 last:border-r-0">
-      <p className="text-base font-semibold">{value}</p>
-      <p className="mt-0.5 text-[8px] uppercase tracking-[0.05em] text-[#7a837e]">{label}</p>
     </div>
   );
 }
