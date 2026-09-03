@@ -1,0 +1,17 @@
+{
+  "name": "@remy-ai/cli",
+  "version": "0.1.0",
+  "description": "Initialize Remy in a Next.js application",
+  "type": "module",
+  "bin": {
+    "remy": "./bin/remy.mjs"
+  },
+  "files": [
+    "bin"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
+
