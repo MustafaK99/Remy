@@ -3,6 +3,8 @@ name: Publish npm packages
 on:
   workflow_dispatch:
   push:
+    branches:
+      - master
     tags:
       - "v*"
 
@@ -16,6 +18,7 @@ concurrency:
 
 jobs:
   publish:
+    if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' || contains(github.event.head_commit.message, '[publish npm]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
